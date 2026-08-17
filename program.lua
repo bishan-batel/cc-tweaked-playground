@@ -1,46 +1,31 @@
 ---@type ccTweaked.peripheral.Monitor
 local monitor = peripheral.find("monitor")
-
----@type any
+---@type cctweaked.peripheral.Radar
 local radar = peripheral.find("create_radar:radar_bearing")
-
-monitor.clear()
-
-local width, height = monitor.getSize()
-
 
 ---@param color ccTweaked.colors.color
 local function clearBackground(color)
-  monitor.setBackgroundColour(color)
-  monitor.setTextColor(color)
+  local width, height = monitor.getSize();
 
-  for y = 1, height, 1 do
-    for x = 1, width, 1 do
-      monitor.setCursorPos(x, y)
-      monitor.write(" ")
-    end
-  end
+  term.redirect(monitor)
+  paintutils.drawBox(0, 0, width, height)
 end
 
 
-local function osLoop()
+local function setup()
   clearBackground(colors.black)
+end
 
-  ---@type [RadarTrack]
-  local tracks = radar.getTracks()
-
-
-  print(tracks)
-
-  monitor.setCursorPos(1, 1)
-
-  for _, track in ipairs(tracks) do
+local function update()
+  clearBackground(colors.black)
+  for i, track in ipairs(radar:getTracks()) do
+    monitor.setCursorPos(1, i + 1)
     monitor.setBackgroundColour(colors.black)
     monitor.setTextColor(colors.white)
     monitor.write(track.entityType .. " - " .. tostring(track.position) .. "\n")
   end
 end
 
-while true do
-  osLoop()
-end
+setup()
+
+while true do update() end
