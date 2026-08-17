@@ -1,0 +1,63 @@
+{
+  "diagnostics": {
+    "enable": true,
+    "globals": [
+      "self"
+    ],
+    "disable": [],
+    "disableScheme": [],
+    "libraryFiles": "Enable",
+    "workspaceEvent": "OnChange"
+  },
+  "workspace": {
+    "library": [],
+    "useGitIgnore": true,
+    "ignoreDir": [
+      "libraries/lua",
+      "libraries/sol2"
+    ]
+  },
+  "window": {
+    "statusBar": true,
+    "progressBar": true
+  },
+  "semantic": {
+    "enable": true,
+    "keyword": true,
+    "annotation": true,
+    "variable": true
+  },
+  "type": {
+    "castNumberToInteger": false,
+    "weakNilCheck": false,
+    "weakUnionCheck": false
+  },
+  "hint": {
+    "enable": true,
+    "await": true,
+    "paramName": "All",
+    "paramType": "true",
+    "semicolon": "SameLine",
+    "arrayIndex": "Auto",
+    "setType": true
+  },
+  "hover": {
+    "enable": true,
+    "expandAlias": false
+  },
+  "completion": {
+    "enable": true,
+    "autoRequire": true,
+    "displayContext": 0,
+    "callSnippet": "Both",
+    "keywordSnippet": "Both",
+    "postfix": "@",
+    "requireSeperator": ".",
+    "showParams": true,
+    "showWord": "Fallback",
+    "workspaceWord": true
+  },
+  "signatureHelp": {
+    "enable": true
+  }
+}

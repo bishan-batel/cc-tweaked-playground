@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Copy",
+      "type": "shell",
+      "command": "bash ./pastebin.bash ./shit.lua"
+    }
+  ]
+}
