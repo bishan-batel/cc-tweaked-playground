@@ -1,44 +1,55 @@
-local url = "wss://unpadded-unclasp-steep.ngrok-free.dev" -- Your ngrok URL here
-local targetFile = "program.lua"
+local url = "wss://unpadded-unclasp-steep.ngrok-free.dev"
+
+settings.load("reload.settings")
+
+local main_file = settings.get("main_file", "main.lua")
+
+if #arg > 0 then
+  main_file = arg[1] .. ".lua"
+  settings.set("main_file", main_file)
+  settings.save("reload.settings")
+end
 
 
-print("Connecting to local sync server...")
+
+
 local ws, err = http.websocket(url)
 
 if not ws then
   error("Connection failed: " .. tostring(err))
 end
 
-print("Connected! Waiting for code updates...")
-print("Press 'q' during execution to cancel.")
-
--- This function runs your downloaded file inside a coroutine
-local function runTargetFile()
-  shell.run(targetFile)
-end
-
+print("Connected")
 
 while true do
-  -- 1. Always wait for the very first file to arrive before starting
   local message = ws.receive()
   if not message then
-    print("Disconnected from server.")
+    error("Disconnected from server.")
     break
   end
 
-  -- 2. Save the code to your file
-  local file = fs.open(targetFile, "w")
-  file.write(message)
-  file.close()
+  local seperator = message:find("@")
 
-  print("\nCode Loaded! Starting execution...")
+  local fileName = message:sub(0, seperator - 1);
+  local fileData = message:sub(seperator + 1);
 
-  -- 3. Define the two tasks we want to run at the same time
+  local file = fs.open(fileName, "w")
 
-  -- Task A: Run your actual downloaded program
+  print("Received file ", fileName)
+
+  if file == nil then
+    print("\tFailed to open file", fileName)
+  else
+    file.write(fileData)
+    file.close()
+  end
+
+
   local function runYourCode()
+    print("Executing", main_file)
+
     local success, err = pcall(function()
-      shell.run(targetFile)
+      shell.run(main_file)
     end)
     if not success then
       print("\nCode Error: " .. tostring(err))
@@ -47,30 +58,22 @@ while true do
     end
   end
 
-  -- Task B: Wait in the background for a cancel key OR a network update
   local function waitForInterrupt()
     while true do
       local event, param1 = os.pullEvent()
 
-      -- Check if user pressed 'q'
       if event == "key" and param1 == keys.q then
-        print("\nStopped: You pressed 'q'")
-        return -- This exits the function and stops parallel
+        print("\nStopped")
+        return
       end
 
-      -- Check if a network message came from ngrok
       if event == "websocket_message" and param1 == url then
-        print("\nReloading: New save received from IDE!")
-        -- Put the message back into the queue so the main loop can read it next
+        print("\nReloading...")
         os.queueEvent("websocket_message", url, ws.receive())
-        return -- This exits the function and stops parallel
+        return
       end
     end
   end
 
-  -- 4. Run both at once. If either finishes, the other is instantly killed!
   parallel.waitForAny(runYourCode, waitForInterrupt)
-
-  print("---------------------------------------")
-  print("Waiting for next trigger...")
 end
