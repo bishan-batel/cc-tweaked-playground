@@ -1,0 +1,24 @@
+{
+  "name": "computercarft",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/bishan-batel/cc-tweaked-playground#readme",
+  "bugs": {
+    "url": "https://github.com/bishan-batel/cc-tweaked-playground/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bishan-batel/cc-tweaked-playground.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "ws": "^8.21.3"
+  }
+}
