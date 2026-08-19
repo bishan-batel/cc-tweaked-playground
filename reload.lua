@@ -4,6 +4,19 @@ settings.load("reload.settings")
 
 local main_file = settings.get("main_file", "main.lua")
 
+local function info(message)
+  term.redirect(term.native())
+
+  local fg, bg = term.getTextColor(), term.getBackgroundColor()
+
+  term.setTextColor(colors.lightGray)
+  term.setBackgroundColor(colors.black)
+  term.write(message)
+  term.write("\n")
+  term.setTextColor(fg)
+  term.setBackgroundColor(bg)
+end
+
 if #arg > 0 then
   main_file = arg[1] .. ".lua"
   settings.set("main_file", main_file)
@@ -11,6 +24,7 @@ if #arg > 0 then
 end
 
 
+term.clear()
 
 
 local ws, err = http.websocket(url)
@@ -19,7 +33,8 @@ if not ws then
   error("Connection failed: " .. tostring(err))
 end
 
-print("Connected")
+info("Connected")
+
 
 while true do
   local message = ws.receive()
@@ -28,6 +43,9 @@ while true do
     break
   end
 
+  term.redirect(term.native())
+  term.clear()
+
   local seperator = message:find("@")
 
   local fileName = message:sub(0, seperator - 1);
@@ -35,10 +53,10 @@ while true do
 
   local file = fs.open(fileName, "w")
 
-  print("Received file ", fileName)
+  info("Received file " .. fileName)
 
   if file == nil then
-    print("\tFailed to open file", fileName)
+    info("\tFailed to open file " .. fileName)
   else
     file.write(fileData)
     file.close()
@@ -46,15 +64,15 @@ while true do
 
 
   local function runYourCode()
-    print("Executing", main_file)
+    info("Executing " .. main_file)
 
     local success, err = pcall(function()
       shell.run(main_file)
     end)
     if not success then
-      print("\nCode Error: " .. tostring(err))
+      info("Code Error: " .. tostring(err))
     else
-      print("\nProgram finished running on its own.")
+      info("Program finished running on its own.")
     end
   end
 
@@ -63,12 +81,12 @@ while true do
       local event, param1 = os.pullEvent()
 
       if event == "key" and param1 == keys.q then
-        print("\nStopped")
+        info("\nStopped")
         return
       end
 
       if event == "websocket_message" and param1 == url then
-        print("\nReloading...")
+        info("\nReloading...")
         os.queueEvent("websocket_message", url, ws.receive())
         return
       end

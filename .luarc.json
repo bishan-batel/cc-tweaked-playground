@@ -9,6 +9,9 @@
     "libraryFiles": "Enable",
     "workspaceEvent": "OnChange"
   },
+  "runtime.path": [
+    "src/?.lua"
+  ],
   "workspace": {
     "library": [],
     "useGitIgnore": true,
