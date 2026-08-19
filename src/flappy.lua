@@ -215,9 +215,9 @@ local function main()
         state = not state
         if state then
           term.setBackgroundColor(colors.black)
-          term.setTextColor(colors.white)
+          term.setTextColor(colors.red)
         else
-          term.setBackgroundColor(colors.white)
+          term.setBackgroundColor(colors.red)
           term.setTextColor(colors.black)
         end
         term.write(loseMessage)
