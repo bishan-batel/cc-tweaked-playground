@@ -1,3 +1,1 @@
-require("mathutils")
-
-print("Main File!")
+print("INVALID, INVOKE THE COMMAND WITH PROPER SCRIPT NAME")
