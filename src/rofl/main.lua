@@ -42,15 +42,15 @@ local Roflcopter = {
     landing = {
       front = {
         left =
-          peripheral.wrap("optical_sensor_0") --[[@as cctweaked.peripheral.OpticalSensor]],
-        right =
-          peripheral.wrap("optical_sensor_1") --[[@as cctweaked.peripheral.OpticalSensor]],
-      },
-      back = {
-        left =
           peripheral.wrap("optical_sensor_2") --[[@as cctweaked.peripheral.OpticalSensor]],
         right =
           peripheral.wrap("optical_sensor_3") --[[@as cctweaked.peripheral.OpticalSensor]],
+      },
+      back = {
+        left =
+          peripheral.wrap("optical_sensor_0") --[[@as cctweaked.peripheral.OpticalSensor]],
+        right =
+          peripheral.wrap("optical_sensor_1") --[[@as cctweaked.peripheral.OpticalSensor]],
       }
 
     },
@@ -86,9 +86,11 @@ function Roflcopter:init()
 
 
 
+
   self.displays = {
-    require("monitorFL"),
-    require("monitorCaptainNavigation"),
+    require("CaptainDisplayLeft"),
+    require("CaptainNavigation"),
+    require("CaptainDisplayVisualizer"),
   }
 end
 
