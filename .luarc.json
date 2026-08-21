@@ -10,7 +10,8 @@
     "workspaceEvent": "OnChange"
   },
   "runtime.path": [
-    "src/?.lua"
+    "src/?.lua",
+    "src/rofl/?.lua"
   ],
   "workspace": {
     "library": [],

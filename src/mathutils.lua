@@ -1,3 +1,5 @@
+require("math")
+
 ---@param x number
 ---@return number
 function math.round(x)

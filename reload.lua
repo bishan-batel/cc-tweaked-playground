@@ -18,7 +18,7 @@ local function info(message)
 end
 
 if #arg > 0 then
-  main_file = arg[1] .. ".lua"
+  main_file = arg[1]
   settings.set("main_file", main_file)
   settings.save("reload.settings")
 end
@@ -45,15 +45,18 @@ while true do
 
   term.redirect(term.native())
   term.clear()
+  term.setCursorPos(1, 1)
 
   local seperator = message:find("@")
 
   local fileName = message:sub(0, seperator - 1);
   local fileData = message:sub(seperator + 1);
 
+  pcall(fs.makeDir, fs.getDir(fileName))
+
   local file = fs.open(fileName, "w")
 
-  info("Received file " .. fileName)
+  info("\nReceived file " .. fileName)
 
   if file == nil then
     info("\tFailed to open file " .. fileName)

@@ -7,6 +7,18 @@ const wss = new WebSocketServer({ port: 8080 });
 
 const SOURCE_DIRECTORY = path.resolve("./src/");
 
+function* readAllFiles(dir: string): Generator<string> {
+  const files = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const file of files) {
+    if (file.isDirectory()) {
+      yield* readAllFiles(path.join(dir, file.name));
+    } else {
+      yield path.join(dir, file.name);
+    }
+  }
+}
+
 const formatMessage = (filePath: string) => {
   const relative = filePath;
 
@@ -26,10 +38,8 @@ const formatMessage = (filePath: string) => {
 wss.on("connection", (ws) => {
   console.log("ComputerCraft connected!");
 
-  for (const path of fs.readdirSync(SOURCE_DIRECTORY)) {
-    console.log("Sending ", path)
-
-    const message = formatMessage(path);
+  for (const fp of readAllFiles(SOURCE_DIRECTORY)) {
+    const message = formatMessage(path.relative(SOURCE_DIRECTORY, fp));
     if (message) {
       ws.send(message);
     }
