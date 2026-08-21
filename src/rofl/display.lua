@@ -23,9 +23,10 @@ function Display:display(rofl)
   if self.lastDrawTime > 1.0 / self.refreshRate then
     self.lastDrawTime = 0
 
-    local old = term.redirect(self.monitor)
+    local native = term.native()
+    term.redirect(self.monitor)
     self:_draw(rofl)
-    term.redirect(old)
+    term.redirect(native)
   end
 end
 

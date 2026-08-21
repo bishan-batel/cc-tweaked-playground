@@ -1,11 +1,10 @@
----@class rofl.InfoDisplay.Sensore
-local InfoDisplaySensors = {}
+local Engine = require("engine")
 
 ---@class rofl.Roflcopter
 local Roflcopter = {
 
-  ---@type [rofl.Display]
-  displays = {},
+  ---@type {[string]: rofl.System}
+  systems = {},
 
   animatronic = peripheral.wrap("top") --[[@as ccTweaked.peripheral.Animatronic]],
 
@@ -14,6 +13,10 @@ local Roflcopter = {
 
   displayBootscreen = false,
 
+  relays = {
+    peripheral.wrap("redstone_relay_1") --[[@as ccTweaked.peripheral.RedstoneRelay]],
+    peripheral.wrap("redstone_relay_2") --[[@as ccTweaked.peripheral.RedstoneRelay]],
+  },
 
   sensors = {
     navigation_table =
@@ -54,68 +57,83 @@ local Roflcopter = {
       }
 
     },
-  }
+  },
+
+  ---@type rofl.Engine
+  engine = nil
 }
 
+function Roflcopter:_init()
+  self.engine = Engine.new(Roflcopter)
 
-function Roflcopter:bootscreen()
-  if not self.displayBootscreen then
-    return
-  end
+  self:addSystem(require("displaySystem").new(self))
+  self:addSystem(require("systemPropellarControl").new(self))
 
-  local allMonitors = { peripheral.find("monitor") }
+  term.clear()
+  term.setCursorPos(1, 1)
 
-  for i = 1, 10, 1 do
-    for name, monitor in pairs(allMonitors) do
-      ---@cast monitor ccTweaked.peripheral.Monitor
-      monitor.setCursorPos(1, i)
-      monitor.write("GOOSE OS LOADING " .. name)
+  -- startup all systems
+  for _, system in pairs(self.systems) do
+    local success, err = pcall(system._init, system)
+    if not success then
+      print("ERROR ON INIT:", system.name, " ", err)
     end
-    os.sleep(0.2)
-  end
-
-  for _, monitor in pairs(allMonitors) do
-    ---@cast monitor ccTweaked.peripheral.Monitor
-    monitor.clear()
   end
 end
 
-function Roflcopter:init()
-  self:bootscreen();
-  self.animatronic.setTransition("rusty")
-
-
-
-
-  self.displays = {
-    require("CaptainDisplayLeft"),
-    require("CaptainNavigation"),
-    require("CaptainDisplayVisualizer"),
-  }
+---@param system rofl.System
+function Roflcopter:addSystem(system)
+  self.systems[system.name] = system
 end
 
 ---@param dt number
-function Roflcopter:update(dt)
-  for _, display in ipairs(self.displays) do
-    display:display(self)
+function Roflcopter:_update(dt)
+  self.engine:_update(dt);
+
+  local systemUpdates = {}
+
+  for _, sys in pairs(self.systems) do
+    table.insert(systemUpdates, function()
+      sys:_update(dt)
+    end)
   end
+
+  parallel.waitForAll(table.unpack(systemUpdates))
 end
 
-function Roflcopter:run()
+function Roflcopter:_mainLoop()
   local previousTime = os.epoch("utc")
-
-  self:init()
 
   while true do
     local currentTime = os.epoch("utc")
     self.dt = (currentTime - previousTime) / 1000.0
     self.uptime = self.uptime + self.dt
 
-    self:update(self.dt)
+    self:_update(self.dt)
 
     previousTime = currentTime
     os.sleep(0.05)
   end
 end
 
-Roflcopter:run()
+---@return [function]
+function Roflcopter:_getGlobalThreads()
+  local threads = {
+    function() self:_mainLoop() end,
+  }
+
+  for _, system in ipairs(self.systems) do
+    for _, routine in ipairs(system.backgroundRoutines) do
+      table.insert(threads, routine)
+    end
+  end
+
+  return threads
+end
+
+function Roflcopter:_run()
+  self:_init()
+  parallel.waitForAll(table.unpack(self:_getGlobalThreads()))
+end
+
+Roflcopter:_run()
