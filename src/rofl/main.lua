@@ -66,12 +66,9 @@ local Roflcopter = {
 function Roflcopter:_init()
   self.engine = Engine.new(Roflcopter)
 
-  self:addSystem(require("systemSensors").new(self))
-  self:addSystem(require("displaySystem").new(self))
-  self:addSystem(require("systemPropellarControl").new(self))
-
-  term.clear()
-  term.setCursorPos(1, 1)
+  self:addSystem(require("system.SensorSystem").new(self))
+  self:addSystem(require("display.DisplaySystem").new(self))
+  self:addSystem(require("system.PropellarControlSystem").new(self))
 
   -- startup all systems
   for _, system in pairs(self.systems) do

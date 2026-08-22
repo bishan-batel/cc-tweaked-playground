@@ -1,4 +1,4 @@
-local System = require("system")
+local System = require("..system")
 
 ---@class rofl.DisplaySystem : rofl.System
 ---@field private _displays [rofl.Display]

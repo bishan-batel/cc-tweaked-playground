@@ -1,5 +1,5 @@
 local System = require("system")
-local Propellar = require("propellar")
+local Propellar = require("peripheral.propellar")
 
 --- base level of force that propellars apply (ignoring air pressure)
 local PROPELLAR_BASE_FORCE = 780

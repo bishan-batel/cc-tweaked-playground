@@ -1,4 +1,5 @@
-local System = require("system")
+local System = require "system.init"
+local aero = require "aero"
 
 ---@class rofl.SensorSystem : rofl.System
 ---@field centerOfMass ccTweaked.Vector
@@ -12,6 +13,7 @@ SensorSystem.__index = SensorSystem
 function SensorSystem.new(rofl)
   local instance = System.new("rofl.SensorSystem", rofl)
   setmetatable(instance, SensorSystem)
+
 
   instance.gravity = aero.getGravity() --[[@as ccTweaked.Vector]]
 

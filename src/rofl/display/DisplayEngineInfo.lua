@@ -1,4 +1,4 @@
-local Display = require("display")
+local Display = require("display.init")
 
 ---@class rofl.DisplayEngineInfo : rofl.Display
 local DisplayEngineInfo = Display:new(
