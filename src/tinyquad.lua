@@ -91,7 +91,15 @@ local speedController = {
 }
 
 
+local lastTime = os.epoch "utc"
+
 while true do
+  local currentTime = os.epoch "utc"
+
+  local dt = (currentTime - lastTime) / 1000.0
+
+  lastTime = currentTime
+
   local angles = sensors.gimbal:getAngles()
 
   local pitch = angles[1]
@@ -269,5 +277,6 @@ while true do
   term.setTextColor(colors.white)
   write("\nPITCHCOR=" .. tostring(math.roundTo(pitchSpeedOffset, 2)))
   write("\nROLLCOR=" .. tostring(math.roundTo(rollSpeedOffset, 2)))
+  write("\nDT=" .. dt)
   sleep(1.0 / 20)
 end

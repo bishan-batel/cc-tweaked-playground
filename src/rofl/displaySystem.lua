@@ -18,6 +18,7 @@ function DisplaySystem:_init()
     require("CaptainDisplayLeft"),
     require("CaptainNavigation"),
     require("CaptainDisplayVisualizer"),
+    require("DisplayEngineInfo")
   }
 end
 

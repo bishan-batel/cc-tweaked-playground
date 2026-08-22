@@ -13,6 +13,7 @@ function System.new(name, rofl)
   local self = setmetatable({}, System)
   self.rofl = rofl
   self.name = name
+  self.backgroundRoutines = {}
 
   return self
 end

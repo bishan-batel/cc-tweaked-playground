@@ -66,6 +66,7 @@ local Roflcopter = {
 function Roflcopter:_init()
   self.engine = Engine.new(Roflcopter)
 
+  self:addSystem(require("systemSensors").new(self))
   self:addSystem(require("displaySystem").new(self))
   self:addSystem(require("systemPropellarControl").new(self))
 
@@ -84,6 +85,13 @@ end
 ---@param system rofl.System
 function Roflcopter:addSystem(system)
   self.systems[system.name] = system
+end
+
+---@generic T : rofl.System
+---@param name `T`
+---@return T
+function Roflcopter:getSystem(name)
+  return self.systems[name]
 end
 
 ---@param dt number
@@ -112,28 +120,29 @@ function Roflcopter:_mainLoop()
     self:_update(self.dt)
 
     previousTime = currentTime
-    os.sleep(0.05)
+    os.sleep(0.01)
   end
 end
 
 ---@return [function]
 function Roflcopter:_getGlobalThreads()
   local threads = {
-    function() self:_mainLoop() end,
+    function() self:_mainLoop() end
   }
 
-  for _, system in ipairs(self.systems) do
+  for _, system in pairs(self.systems) do
     for _, routine in ipairs(system.backgroundRoutines) do
       table.insert(threads, routine)
     end
   end
+
 
   return threads
 end
 
 function Roflcopter:_run()
   self:_init()
-  parallel.waitForAll(table.unpack(self:_getGlobalThreads()))
+  parallel.waitForAny(table.unpack(self:_getGlobalThreads()))
 end
 
 Roflcopter:_run()

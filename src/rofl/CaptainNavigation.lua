@@ -20,18 +20,6 @@ function CaptainDisplayNav:_draw(rofl)
   term.write("DST")
   term.setCursorPos(1, 4)
   term.write("ETA")
-
-  term.clear()
-  term.setCursorPos(1, 1)
-  print("Running: ", rofl.engine:isRunning(), "Key: ", rofl.engine:isKeyTurned())
-  print("RPM ", rofl.engine:getRpm())
-  print("SU ", rofl.engine:getSu())
-  print("Fuel ", rofl.engine:getFuel())
-  -- print(math.random())
-  -- for i, line in ipairs(rofl.engine.target.dump()) do
-  --   term.setCursorPos(1, i)
-  --   print(line)
-  -- end
 end
 
 return CaptainDisplayNav
