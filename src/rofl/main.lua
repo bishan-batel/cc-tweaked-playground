@@ -60,15 +60,37 @@ local Roflcopter = {
   },
 
   ---@type rofl.Engine
-  engine = nil
+  engine = nil,
+
+  ---@type rofl.Engine
+  auxEngine = nil,
 }
 
 function Roflcopter:_init()
-  self.engine = Engine.new(Roflcopter)
+  self.engine = Engine.new(
+    self,
+    "Main Engine",
+    "back",
+    function() return redstone.getInput("front") end
+  )
+
+  self.auxEngine = Engine.new(
+    self,
+    "Aux Engine",
+    "front",
+    function() return redstone.getInput("top") end
+  )
+
+  local wirelessModem =
+    peripheral.find("modem", function(name, modem) return modem.isWireless() end)
+
+  if wirelessModem then
+    rednet.open(peripheral.getName(wirelessModem))
+  end
 
   self:addSystem(require("system.SensorSystem").new(self))
   self:addSystem(require("display.DisplaySystem").new(self))
-  self:addSystem(require("system.PropellarControlSystem").new(self))
+  self:addSystem(require("system.PropellerControlSystem").new(self))
 
   -- startup all systems
   for _, system in pairs(self.systems) do
@@ -93,7 +115,14 @@ end
 
 ---@param dt number
 function Roflcopter:_update(dt)
-  self.engine:_update(dt);
+  parallel.waitForAll(
+    function()
+      self.engine:_update(dt);
+    end,
+    function()
+      self.auxEngine:_update(dt);
+    end
+  )
 
   local systemUpdates = {}
 

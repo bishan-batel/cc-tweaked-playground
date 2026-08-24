@@ -1,4 +1,4 @@
-local System = require("..system")
+local System = require("system")
 
 ---@class rofl.DisplaySystem : rofl.System
 ---@field private _displays [rofl.Display]
@@ -15,17 +15,21 @@ end
 
 function DisplaySystem:_init()
   self._displays = {
-    require("CaptainDisplayLeft"),
-    require("CaptainNavigation"),
-    require("CaptainDisplayVisualizer"),
-    require("DisplayEngineInfo")
+    require("display.CaptainDisplayLeft"),
+    require("display.CaptainNavigation"),
+    require("display.CaptainDisplayVisualizer"),
+    require("display.DisplayEngineInfo")
   }
 end
 
 function DisplaySystem:_update(dt)
+  local displayFunctions = {}
   for _, display in ipairs(self._displays) do
-    display:display(self.rofl)
+    table.insert(displayFunctions, function()
+      display:display(self.rofl)
+    end)
   end
+  parallel.waitForAll(table.unpack(displayFunctions))
 end
 
 return DisplaySystem

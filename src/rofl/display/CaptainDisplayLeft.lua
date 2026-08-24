@@ -32,7 +32,7 @@ local MAX_VELOCITY = 20
 
 ---@class rofl.CaptainDisplayLeft : rofl.Display
 local CaptainDisplayLeft = Display:new(
-  peripheral.wrap("monitor_2") --[[@as ccTweaked.peripheral.Monitor]]
+  peripheral.wrap("monitor_11") --[[@as ccTweaked.peripheral.Monitor]]
 )
 
 CaptainDisplayLeft.refreshRate = 20

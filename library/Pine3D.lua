@@ -1248,6 +1248,7 @@ function loadModel(path)
   ---@field normalizeScale fun(self: Model): Model Rescales the model such that the largest value of any coordinate is equal to 1
   ---@field normalizeScaleY fun(self: Model): Model Similar to normalizeScale, rescales the model, but only uses the y coordinate to determine how much it is scaled (normalizes height)
   ---@field scale fun(self: Model, scale: number): Model Scales the model
+  ---@field scaleNonUniform fun(self: Model, scale: ccTweaked.Vector): Model Scales the model
   ---@field translate fun(self: Model, dx: number?, dy: number?, dz: number?): Model Translates the model
   ---@field rotate fun(self: Model, rotX: number?, rotY: number?, rotZ: number?): Model Rotates a given Model around three axes (radians)
   ---@field alignBottom fun(self: Model): Model Translates the model such that the bottom aligns with y = 0

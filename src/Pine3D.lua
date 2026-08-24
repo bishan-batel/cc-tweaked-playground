@@ -753,6 +753,26 @@ function transforms.scale(model, scale)
   return model
 end
 
+---Scales the model
+---@param model Model
+---@param scale ccTweaked.Vector
+function transforms.scaleNonUniform(model, scale)
+  for i = 1, #model do
+    local poly = model[i]
+    poly.x1 = poly.x1 * scale.x
+    poly.x2 = poly.x2 * scale.x
+    poly.x3 = poly.x3 * scale.x
+    poly.y1 = poly.y1 * scale.y
+    poly.y2 = poly.y2 * scale.y
+    poly.y3 = poly.y3 * scale.y
+    poly.z1 = poly.z1 * scale.z
+    poly.z2 = poly.z2 * scale.z
+    poly.z3 = poly.z3 * scale.z
+  end
+
+  return model
+end
+
 ---Translates the model
 ---@param model Model
 ---@param dx number?
