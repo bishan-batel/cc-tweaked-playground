@@ -1,5 +1,7 @@
 local Matrix = require "..matrix"
 
+--- world dependent config, these are just set to the Create defaultse
+
 ---@class rofl.Propeller Wrapper for a propellar variable
 ---@field private speedController cctweaked.peripheral.RotationSpeedController
 ---@field enabled boolean When false the propellar will snap to 0 RPM
@@ -10,7 +12,10 @@ local Matrix = require "..matrix"
 ---@field lastSentRpm number
 ---@field name string
 ---@field direction Vector?
-local Propeller = {}
+local Propeller = {
+  AIRFLOW_CONFIG = 0.05000000074505806,
+  THRUST_CONFIG = 0.20000000298023224
+}
 Propeller.__index = Propeller
 
 ---@alias rofl.Propeller.Offsets { [string] : number }
@@ -104,6 +109,33 @@ function Propeller:calculateDir(yaw, roll, pitch)
   local direction = Matrix.fromVector(self.direction)
   local rotation = Matrix.fromEuler(roll, pitch, yaw)
   return (rotation * direction):toVector()
+end
+
+--- Computes the required RPM for a single propeller bearing
+--- @param thrust number Required Thrust
+--- @param airPressure number Air Presure of the bearing
+--- @param numSails integer Number of sails on the bearing
+--- @param direction Vector Direction the propeller is facing
+--- @param velocity Vector?
+function Propeller.computeRequiredRpm(
+  thrust,
+  airPressure,
+  numSails,
+  direction,
+  velocity
+)
+  velocity = velocity or vector.new(0, 0, 0)
+
+  local propellerVelocity = velocity:dot(direction)
+
+  local CT = Propeller.THRUST_CONFIG
+  local CA = Propeller.AIRFLOW_CONFIG
+  local nSails = numSails
+
+  local thrustTerm = thrust / (math.pow(nSails, 1.5) * CT * airPressure)
+  local velocityTerm = propellerVelocity / (math.sqrt(nSails) * CA)
+
+  return thrustTerm - velocityTerm
 end
 
 return Propeller

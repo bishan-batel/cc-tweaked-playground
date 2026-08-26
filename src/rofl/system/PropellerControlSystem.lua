@@ -20,22 +20,11 @@ local RIGHT = vector.new(1, 0, 0)
 local LEFT = RIGHT:mul(-1)
 
 
---- smallest possible delta time to prevent division by zero
---- world dependent config, these are just set to the Create defaultse
-local PROP_AIRFLOW_CONFIG = 0.05000000074505806
-local PROP_THRUST_CONFIG = 0.20000000298023224
-
-local PROP_VEL_RPM_FACTOR = 1
-
 local PROPELLER_CENTER_OF_MASS_OFFSET = vector.new(
   0 * 0.4475369341671467,
   0.0,
   0.0
 )
-
---- number of sails per each propeller *bearing*
-local SAILS_PER_BEARING = 40 * 4
-local BEARINGS_PER_PROPELLER = 2
 
 
 
@@ -202,7 +191,39 @@ function PropellerControlSystem:_update(dt)
     return
   end
 
-  self:resetAllToBase(sensors)
+  self:recomputePropellerRpm(sensors)
+end
+
+function PropellerControlSystem:resetPropellers()
+  for _, propeller in ipairs(self.propellers) do
+    propeller:resetRpm(0)
+  end
+  for _, propeller in ipairs(self.propellers) do
+    propeller:resetRpm(0)
+  end
+end
+
+---@private
+function PropellerControlSystem:sendAllRoutine()
+  while true do
+    self:sendAll()
+    sleep(self.SEND_ALL_ROUTINE_WAIT)
+  end
+end
+
+---@private
+function PropellerControlSystem:sendAll()
+  local actions = {}
+
+  for _, propeller in ipairs(self.propellers) do
+    table.insert(actions, function() propeller:sendAll() end)
+  end
+
+  for _, propeller in ipairs(self.strafePropellers) do
+    table.insert(actions, function() propeller:sendAll() end)
+  end
+
+  parallel.waitForAll(table.unpack(actions))
 end
 
 ---@param sensors rofl.SensorSystem
@@ -246,8 +267,10 @@ function PropellerControlSystem:getRequirements(sensors)
   }
 end
 
+---Triggers recomputing the thrust / required thrust for each propeller to match
+---requirements
 ---@param sensors rofl.SensorSystem
-function PropellerControlSystem:resetAllToBase(sensors)
+function PropellerControlSystem:recomputePropellerRpm(sensors)
   local gravity = sensors.gravity
   local airPressure = sensors.airPressure
   local velocity = sensors.velocity
@@ -257,6 +280,7 @@ function PropellerControlSystem:resetAllToBase(sensors)
     roll = sensors.roll,
     pitch = sensors.pitch
   }
+
   local anchorPosition = sensors.anchorPosition
 
   local centerOfMass, mass = self:computeShipCenterOfMass(
@@ -277,26 +301,45 @@ function PropellerControlSystem:resetAllToBase(sensors)
     shipAngles
   )
 
+  self:applyThrustAllocations(
+    thrustAllocations,
+    shipAngles,
+    velocity,
+    airPressure
+  )
+end
+
+---@param thrustAllocations { [string]: number }
+---@param shipAngles GimbalAngles
+---@param velocity Vector
+---@param airPressure number
+function PropellerControlSystem:applyThrustAllocations(
+  thrustAllocations,
+  shipAngles,
+  velocity,
+  airPressure
+)
   for _, propeller in ipairs(self.propellers) do
     local requiredThrust = thrustAllocations[propeller.name] or 0
 
-    local propBaseRpm = self:computeBaseRpmForPropeller(
-      propeller,
-      shipAngles,
-      velocity,
-      airPressure,
-      requiredThrust
+    propeller:resetRpm(
+      self:getRequiredRpmForPropeller(
+        propeller,
+        shipAngles,
+        velocity,
+        airPressure,
+        requiredThrust
+      )
     )
-
-    propeller:resetRpm(propBaseRpm)
 
     local tilt = -shipAngles.pitch * 0
 
+    --- Apply calibration if needed
     if PROP_CALIBRATION[propeller.name] then
       tilt = tilt + PROP_CALIBRATION[propeller.name]
     end
+
     propeller:resetTilt(tilt)
-    -- propeller:resetTilt(0)
   end
 end
 
@@ -353,7 +396,7 @@ function PropellerControlSystem:solveThrustLeastSquared(
   }
 
   local AT = A:transpose()
-  local ATA = A:multiply(AT)
+  local ATA = A * AT
   local inverse, inverseError = ATA:inverse()
 
   if not inverse then
@@ -373,9 +416,7 @@ function PropellerControlSystem:solveThrustLeastSquared(
     { requirements.lift, }
   }
 
-  local solutionV = AT:multiply(inverse:multiply(requiredV))
-
-  -- print(solutionV.rows, solutionV.cols)
+  local solutionV = AT * inverse * requiredV
 
   for i, propeller in ipairs(self.propellers) do
     local thrustValue = solutionV.data[i][1]
@@ -384,42 +425,6 @@ function PropellerControlSystem:solveThrustLeastSquared(
 
 
   return allocations
-end
-
----@param propeller rofl.Propeller
----@param shipAngles GimbalAngles
----@param airPressure number
----@param velocity ccTweaked.Vector
----@param requiredThrust number
----@return number
----@private
-function PropellerControlSystem:computeBaseRpmForPropeller(
-  propeller,
-  shipAngles,
-  velocity,
-  airPressure,
-  requiredThrust
-)
-  requiredThrust = requiredThrust / BEARINGS_PER_PROPELLER
-  -- requiredThrust = requiredThrust / 1.01793445653
-
-  local propellerDir = propeller:calculateDir(
-    shipAngles.yaw,
-    shipAngles.roll,
-    shipAngles.pitch
-  )
-
-
-  local propellerVelocity = velocity:dot(propellerDir) * PROP_VEL_RPM_FACTOR
-
-  local CT = PROP_THRUST_CONFIG
-  local CA = PROP_AIRFLOW_CONFIG
-  local nSails = SAILS_PER_BEARING
-
-  local thrustTerm = requiredThrust / (math.pow(nSails, 1.5) * CT * airPressure)
-  local velocityTerm = propellerVelocity / (math.sqrt(nSails) * CA)
-
-  return math.max(0, thrustTerm - velocityTerm)
 end
 
 ---@param dt number
@@ -520,36 +525,40 @@ function PropellerControlSystem:getMassPerPropeller(propeller)
   return 506.5, offset
 end
 
-function PropellerControlSystem:resetPropellers()
-  for _, propeller in ipairs(self.propellers) do
-    propeller:resetRpm(0)
-  end
-  for _, propeller in ipairs(self.propellers) do
-    propeller:resetRpm(0)
-  end
-end
-
+---@param propeller rofl.Propeller
+---@param shipAngles GimbalAngles
+---@param airPressure number
+---@param velocity ccTweaked.Vector
+---@param requiredThrust number
+---@return number
 ---@private
-function PropellerControlSystem:sendAllRoutine()
-  while true do
-    self:sendAll()
-    sleep(self.SEND_ALL_ROUTINE_WAIT)
-  end
-end
+function PropellerControlSystem:getRequiredRpmForPropeller(
+  propeller,
+  shipAngles,
+  velocity,
+  airPressure,
+  requiredThrust
+)
+  --- number of sails per each propeller *bearing*
+  local NUM_SAILS = 40 * 4
+  local NUM_BEARINGS = 2
 
----@private
-function PropellerControlSystem:sendAll()
-  local actions = {}
+  requiredThrust = requiredThrust / NUM_BEARINGS
+  -- requiredThrust = requiredThrust / 1.01793445653
 
-  for _, propeller in ipairs(self.propellers) do
-    table.insert(actions, function() propeller:sendAll() end)
-  end
+  local propellerDir = propeller:calculateDir(
+    shipAngles.yaw,
+    shipAngles.roll,
+    shipAngles.pitch
+  )
 
-  for _, propeller in ipairs(self.strafePropellers) do
-    table.insert(actions, function() propeller:sendAll() end)
-  end
-
-  parallel.waitForAll(table.unpack(actions))
+  return Propeller.computeRequiredRpm(
+    requiredThrust,
+    airPressure,
+    NUM_SAILS,
+    propellerDir,
+    velocity
+  )
 end
 
 return PropellerControlSystem
