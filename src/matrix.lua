@@ -1,11 +1,17 @@
 ---@class Matrix
----@field rows integer The number of rows in the matrix.
----@field cols integer The number of columns in the matrix.
----@field data number[][] The raw 2D array containing the matrix numbers.
+---@field rows integer
+---@field cols integer
+---@field data number[][]
+---@operator add(Matrix): Matrix
+---@operator sub(Matrix): Matrix
+---@operator mul(number): Matrix
+---@operator mul(Matrix): Matrix
+---@operator unm(): Matrix
+---@operator div(number): Matrix
 local Matrix = {}
 Matrix.__index = Matrix
 
---- Creates a new Matrix instance initialized with zeros.
+--- Creates a matrix initialized with all zeros
 ---@param rows integer
 ---@param cols integer
 ---@return Matrix
@@ -24,7 +30,7 @@ function Matrix.new(rows, cols)
   return self
 end
 
---- Creates a matrix from a raw 2D table.
+--- Creates a matrix from a 2D table
 ---@param t number[][]
 ---@return Matrix
 function Matrix.fromTable(t)
@@ -43,8 +49,10 @@ end
 ---@param other Matrix
 ---@return Matrix
 function Matrix:add(other)
-  assert(self.rows == other.rows and self.cols == other.cols,
-    "Dimension mismatch for matrix addition.")
+  assert(
+    self.rows == other.rows and self.cols == other.cols,
+    "Dimension mismatch for matrix addition."
+  )
   local result = Matrix.new(self.rows, self.cols)
   for i = 1, self.rows do
     for j = 1, self.cols do
@@ -54,9 +62,29 @@ function Matrix:add(other)
   return result
 end
 
---- Multiplies the matrix by either a scalar or another matrix.
----@param val Matrix|number
+--- Subtracts two matrices of the same dimensions together.
+---@param other Matrix
 ---@return Matrix
+function Matrix:sub(other)
+  assert(
+    self.rows == other.rows and self.cols == other.cols,
+    "Dimension mismatch for matrix subtraction."
+  )
+
+  local result = Matrix.new(self.rows, self.cols)
+
+  for i = 1, self.rows do
+    for j = 1, self.cols do
+      result.data[i][j] = self.data[i][j] - other.data[i][j]
+    end
+  end
+
+  return result
+end
+
+--- Multiplies the matrix by either a scalar or another matrix.
+---@overload fun(self, val: number): Matrix
+---@overload fun(self, val: Matrix): Matrix
 function Matrix:multiply(val)
   if type(val) == "number" then
     -- Scalar Multiplication
@@ -86,6 +114,28 @@ function Matrix:multiply(val)
     end
     return result
   end
+end
+
+---Multiplies the matrix by 1/scalar
+---@param scalar number
+function Matrix:divide(scalar)
+  scalar = 1.0 / scalar
+
+  local result = Matrix.new(self.rows, self.cols)
+
+  for i = 1, self.rows do
+    for j = 1, self.cols do
+      result.data[i][j] = self.data[i][j] * scalar
+    end
+  end
+
+  return result
+end
+
+--- Returns the negative of this matrix
+---@return Matrix
+function Matrix:negate()
+  return self:multiply(-1)
 end
 
 --- Transposes the matrix (swaps rows and columns).
@@ -259,5 +309,55 @@ function Matrix:inverse()
 
   return matAdjugate:multiply(1 / det)
 end
+
+---@param vector Vector
+function Matrix.fromVector(vector)
+  return Matrix.fromTable {
+    { vector.x },
+    { vector.y },
+    { vector.z },
+  }
+end
+
+--- Converts this matrix to a Vector, this only works if the matrix is 3x1 / a 3
+--- dim column vector
+---@return Vector
+function Matrix:toVector()
+  assert(self.rows == 3 and self.cols == 1,
+    "toVector only works for 3x1 matrices")
+
+  return vector.new(
+    self.data[1][1],
+    self.data[2][1],
+    self.data[3][1]
+  )
+end
+
+--- Creates a 3x3 rotation matrix from Euler angles (Roll, Pitch, Yaw)
+--- Yaw * Pitch * Roll
+---@param roll number Angle around X axis in radians
+---@param pitch number Angle around Y axis in radians
+---@param yaw number Angle around Z axis in radians
+---@return Matrix
+function Matrix.fromEuler(roll, pitch, yaw)
+  local cosRoll, sinRoll = math.cos(roll), math.sin(roll)
+  local cosPitch, sinPitch = math.cos(pitch), math.sin(pitch)
+  local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
+
+  --- thank god for internet
+  local data = {
+    { cosYaw * cosPitch, cosYaw * sinPitch * sinRoll - sinYaw * cosRoll, cosYaw * sinPitch * cosRoll + sinYaw * sinRoll },
+    { sinYaw * cosPitch, sinYaw * sinPitch * sinRoll + cosYaw * cosRoll, sinYaw * sinPitch * cosRoll - cosYaw * sinRoll },
+    { -sinPitch,         cosPitch * sinRoll,                             cosPitch * cosRoll }
+  }
+
+  return Matrix.fromTable(data)
+end
+
+Matrix.__add = Matrix.add
+Matrix.__sub = Matrix.sub
+Matrix.__mul = Matrix.multiply
+Matrix.__div = Matrix.divide
+Matrix.__unm = Matrix.negate
 
 return Matrix
