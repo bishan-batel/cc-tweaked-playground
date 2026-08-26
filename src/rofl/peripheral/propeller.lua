@@ -74,6 +74,9 @@ end
 --- Sends the RPM into the controller, note that this is considerably laggy
 function Propeller:sendRpm()
   local rpm = self:calculateRpm()
+
+  -- rpm = math.min(rpm, 220)
+
   self.speedController.setTargetSpeed(rpm)
 
   if self.inverse then rpm = -rpm end
@@ -86,7 +89,7 @@ function Propeller:sendTilt()
   local tilt = self:calculateTilt()
   self.tiltAdapter.setTargetAngle(tilt)
 
-  if not self.inverse then tilt = -tilt end
+  -- if not self.inverse then tilt = -tilt end
   self.lastSentTilt = tilt
 end
 
@@ -101,7 +104,8 @@ function Propeller:calculateTilt()
   end
 
   if self.inverse then return tilt end
-  return -tilt
+  -- return -tilt
+  return tilt
 end
 
 --- Gets the total rpm sent to the controller
@@ -121,6 +125,28 @@ function Propeller:calculateRpm()
   end
 
   return rpm
+end
+
+---@param yaw number The yaw of the ship in degrees
+---@param roll number The roll of the ship in degrees
+---@param pitch number The pitch of the ship
+function Propeller:calculateDir(yaw, roll, pitch)
+  local combinedPitch = pitch + (self.lastSentTilt or 0)
+
+
+  local radYaw             = math.rad(yaw)
+  local radRoll            = math.rad(roll)
+  local radPitch           = math.rad(combinedPitch)
+
+  local sinYaw, cosYaw     = math.sin(radYaw), math.cos(radYaw)
+  local sinPitch, cosPitch = math.sin(radPitch), math.cos(radPitch)
+  local sinRoll, cosRoll   = math.sin(radRoll), math.cos(radRoll)
+
+  local dirX               = cosYaw * sinPitch * sinRoll + sinYaw * cosRoll
+  local dirY               = sinYaw * sinPitch * sinRoll - cosYaw * cosRoll
+  local dirZ               = cosPitch * sinRoll
+
+  return vector.new(dirX, dirY, dirZ):mul(-1)
 end
 
 return Propeller

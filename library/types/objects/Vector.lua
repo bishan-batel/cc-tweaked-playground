@@ -12,6 +12,8 @@
 ---@field z number
 Vector = {}
 
+---@alias Vector ccTweaked.Vector
+
 ---Add two `Vector` objects together
 ---
 ---You can also take advantage of the `__add` metamethod:

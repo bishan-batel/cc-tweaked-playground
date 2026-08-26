@@ -76,7 +76,7 @@ local function sRGBtoOklab(r, g, b)
 end
 
 ---Compute distances between colors from current palette using a color space
----@param window Redirect
+---@param window ccTweaked.term.Redirect
 ---@param colorSpace "Oklab" | "sRGB" | nil default: Oklab
 local function computeColorDistances(window, colorSpace)
   colorDistances = {}
@@ -119,7 +119,7 @@ end
 
 ---Draw a color buffer to the window
 ---@param buffer integer[][] 2D array of colors to display
----@param window Redirect
+---@param window ccTweaked.term.Redirect
 ---@param wx integer? x position on monitor (in terminal character pixels)
 ---@param wy integer? y position on monitor (in terminal character pixels)
 local function drawBuffer(buffer, window, wx, wy)

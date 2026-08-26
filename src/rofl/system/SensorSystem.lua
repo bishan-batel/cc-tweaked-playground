@@ -3,7 +3,7 @@ local System = require "system.init"
 local ANCHOR_SETTING = "anchorPosition"
 local SENSORS_CONFIG_PATH = "anchor_config"
 
-local CHANNEL = 6969
+local ANCHOR_CHANNEL = 6969
 
 ---@class rofl.SensorSystem : rofl.System
 ---@field centerOfMass ccTweaked.Vector Center of mass of the sublevel
@@ -18,6 +18,7 @@ local CHANNEL = 6969
 ---@field altitude number
 ---@field anchorPosition ccTweaked.Vector
 ---@field pitch number
+---@field yaw number
 ---@field roll number
 local SensorSystem = {}
 SensorSystem.__index = SensorSystem
@@ -45,18 +46,19 @@ end
 
 function SensorSystem:backgroundRoutineAnchorPosition()
   local modem =
-    peripheral.wrap "modem_2" --[[@as ccTweaked.peripheral.Modem]]
+    peripheral.find("modem", function(name, t) return t.isWireless() end) --[[@as ccTweaked.peripheral.Modem]]
     or error("No modem attached")
 
   assert(modem.isWireless())
 
-  modem.open(CHANNEL)
+  modem.open(ANCHOR_CHANNEL)
   while true do
-    local event, side, channel, replyChannel, message, distance =
+    local _, _, _, _, message, _ =
       os.pullEvent "modem_message"
 
     if type(message) == "table" then
       self.anchorPosition = vector.new(message.x, message.y, message.z)
+      self.anchorPosition = self.anchorPosition:add(vector.new(0.5, 0.5, 0.5))
       settings.set(ANCHOR_SETTING, self.anchorPosition)
       settings.save(SENSORS_CONFIG_PATH)
     end
@@ -83,9 +85,27 @@ function SensorSystem:refresh()
       self.altitude = (self.altitudeBack + self.altitudeFront) / 2
     end,
     function()
-      local angles = sensors.front.gimbal:getAngles()
-      self.pitch = angles[1]
-      self.roll = angles[2]
+      local pose = sublevel.getLogicalPose()
+      self.orientation = pose.orientation
+      self.pitch, self.yaw, self.roll = pose.orientation:toEuler()
+      self.rotationPoint = pose.rotationPoint
+    end,
+    function()
+      local old = self.angularVelocity or vector.new(0, 0, 0)
+
+      self.angularVelocity = sublevel.getAngularVelocity()
+
+      local now = os.epoch("utc") / 1000
+
+      if self.angularVelocityLastUpdated then
+        local dt = now - (self.angularVelocityLastUpdated or now)
+
+        self.angularAcceleration = self.angularVelocity:sub(old):div(dt)
+        self.angularVelocityLastUpdated = now
+      else
+        self.angularAcceleration = vector.new(0, 0, 0)
+        self.angularVelocityLastUpdated = now
+      end
     end
   })
 end
