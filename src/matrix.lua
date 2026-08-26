@@ -335,21 +335,23 @@ end
 
 --- Creates a 3x3 rotation matrix from Euler angles (Roll, Pitch, Yaw)
 --- Yaw * Pitch * Roll
----@param roll number Angle around X axis in radians
----@param pitch number Angle around Y axis in radians
----@param yaw number Angle around Z axis in radians
+---@param angles EulerAngles
 ---@return Matrix
-function Matrix.fromEuler(roll, pitch, yaw)
+function Matrix.fromEuler(angles)
+  local pitch = angles.pitch
+  local yaw = angles.yaw
+  local roll = angles.roll
+
   local cosRoll, sinRoll = math.cos(roll), math.sin(roll)
   local cosPitch, sinPitch = math.cos(pitch), math.sin(pitch)
   local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
 
-  --- thank god for internet
   local data = {
-    { cosYaw * cosPitch, cosYaw * sinPitch * sinRoll - sinYaw * cosRoll, cosYaw * sinPitch * cosRoll + sinYaw * sinRoll },
-    { sinYaw * cosPitch, sinYaw * sinPitch * sinRoll + cosYaw * cosRoll, sinYaw * sinPitch * cosRoll - cosYaw * sinRoll },
-    { -sinPitch,         cosPitch * sinRoll,                             cosPitch * cosRoll }
+    { cosYaw * cosRoll + sinYaw * sinPitch * sinRoll, sinYaw * sinPitch * cosRoll - cosYaw * sinRoll, sinYaw * cosPitch },
+    { cosPitch * sinRoll,                             cosPitch * cosRoll,                             -sinPitch },
+    { cosYaw * sinPitch * sinRoll - sinYaw * cosRoll, sinYaw * sinRoll + cosYaw * sinPitch * cosRoll, cosYaw * cosPitch }
   }
+
 
   return Matrix.fromTable(data)
 end

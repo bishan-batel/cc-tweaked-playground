@@ -1,11 +1,12 @@
 local Display = require("display.init")
+local class = require "..class"
 
 ---@class rofl.DisplayEngineInfo : rofl.Display
-local DisplayEngineInfo = Display:new(
-  peripheral.wrap("monitor_5") --[[@as ccTweaked.peripheral.Monitor]]
-)
-DisplayEngineInfo.refreshRate = 8
-DisplayEngineInfo.__index = DisplayEngineInfo
+local DisplayEngineInfo = {}
+
+
+class.derived(DisplayEngineInfo, Display)
+
 
 TEXT_SCALE = 0.5
 
@@ -40,8 +41,15 @@ local PROPELLER_FRAMES = {
   ]],
 }
 
+---@param monitor
+function DisplayEngineInfo.new(monitor)
+  local self = Display.new(monitor)
+  setmetatable(self, DisplayEngineInfo)
+  self.refreshRate = 8
+  return self
+end
+
 function DisplayEngineInfo:_draw(kernel)
-  local sensors = kernel:getSystem("rofl.SensorSystem")
   local engine = kernel.engine
   local propSystem = kernel:getSystem("rofl.PropellerControlSystem")
 
@@ -51,6 +59,8 @@ function DisplayEngineInfo:_draw(kernel)
 
   term.clear()
   paintutils.drawFilledBox(1, 1, width, height, colors.black)
+
+  local thrustAlloc = propSystem.lastThrustAllocation or {}
 
 
   for i, propeller in ipairs(propSystem.propellers) do
@@ -95,6 +105,32 @@ function DisplayEngineInfo:_draw(kernel)
     end
 
     paintutils.drawImage(PROPELLER_FRAMES[index], x + 19, y + 2)
+
+
+    for name, thrust in pairs(thrustAlloc) do
+      if name == propeller.name then
+        local thrustA = thrust / 2
+        local thrustB = thrustA * 1.01793445653
+        thrustB = thrustA
+
+        if thrustA > thrustB then
+          thrustA, thrustB = thrustB, thrustA
+        end
+
+        term.setCursorPos(x + 2, y + 2)
+        term.setBackgroundColor(colors.black)
+        term.setTextColor(colors.red)
+        term.write(string.format("ThrustA: %.0f", thrustA))
+
+        term.setCursorPos(x + 2, y + 3)
+        term.setTextColor(colors.blue)
+        term.write(string.format("ThrustA: %.0f", thrustB))
+
+        term.setCursorPos(x + 2, y + 4)
+        term.setTextColor(colors.white)
+        term.write(string.format("Thrust: %.0f", thrust))
+      end
+    end
 
     term.setBackgroundColor(colors.gray)
 

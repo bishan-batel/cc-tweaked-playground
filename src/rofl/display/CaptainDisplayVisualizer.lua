@@ -1,16 +1,22 @@
 local Display = require("display")
 local Pine3D = require("..Pine3D")
+local class = require "..class"
 
 ---@class rofl.CaptainDisplayVisualizer : rofl.Display
 ---@field objects [PineObject]
-local CaptainDisplayVisualizer = Display:new(
-  peripheral.wrap("monitor_6") --[[@as ccTweaked.peripheral.Monitor]]
-)
-CaptainDisplayVisualizer.__index = CaptainDisplayVisualizer
+local CaptainDisplayVisualizer = {}
 
-CaptainDisplayVisualizer.refreshRate = 5
+class.derived(CaptainDisplayVisualizer, Display)
 
-function CaptainDisplayVisualizer:_init()
+---@param monitor string
+function CaptainDisplayVisualizer.new(monitor)
+  local self = Display.new(monitor)
+  self = setmetatable(self, CaptainDisplayVisualizer)
+  self.refreshRate = 5
+  return self
+end
+
+function CaptainDisplayVisualizer:init()
   self.monitor.setTextScale(0.5)
   local width, height = self.monitor.getSize()
 
@@ -78,7 +84,5 @@ function CaptainDisplayVisualizer:_draw(kernel)
   term.redirect(self.monitor)
   self.frame:drawBuffer()
 end
-
-CaptainDisplayVisualizer:_init()
 
 return CaptainDisplayVisualizer

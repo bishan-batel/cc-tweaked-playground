@@ -1,35 +1,50 @@
-local System = require("system")
+local System = require "system"
+local CaptainLeft = require "display.CaptainDisplayLeft"
+local CaptainNavigation = require "display.CaptainNavigation"
+local Visualizer = require "display.CaptainDisplayVisualizer"
+local EngineInfo = require "display.DisplayEngineInfo"
 
 ---@class rofl.DisplaySystem : rofl.System
----@field private _displays [rofl.Display]
+---@field private displays [rofl.Display]
 local DisplaySystem = {}
 DisplaySystem.__index = DisplaySystem
 
 ---@param kernel rofl.Kernel
 function DisplaySystem.new(kernel)
-  local instance = System.new("rofl.DisplaySystem", kernel)
-  setmetatable(instance, DisplaySystem)
-
-  return instance
+  local self = System.new("rofl.DisplaySystem", kernel)
+  return setmetatable(self, DisplaySystem)
 end
 
 function DisplaySystem:_init()
-  self._displays = {
-    require("display.CaptainDisplayLeft"),
-    require("display.CaptainNavigation"),
-    require("display.CaptainDisplayVisualizer"),
-    require("display.DisplayEngineInfo")
+  self.displays = {
+    CaptainLeft.new("monitor_11"),
+    CaptainNavigation.new("monitor_12"),
+    Visualizer.new("monitor_6"),
+    EngineInfo.new("monitor_5")
   }
+
+  for _, display in pairs(self.displays) do
+    display:init(self.kernel)
+  end
 end
 
-function DisplaySystem:_update(dt)
-  local displayFunctions = {}
-  for _, display in ipairs(self._displays) do
-    table.insert(displayFunctions, function()
-      display:display(self.kernel)
-    end)
+function DisplaySystem:resetAllMonitors()
+  local monitors = { peripheral.find('monitor') }
+  ---@cast monitors [ccTweaked.peripheral.Monitor]
+
+  for _, monitor in pairs(monitors) do
+    monitor.clear()
   end
-  parallel.waitForAll(table.unpack(displayFunctions))
+end
+
+function DisplaySystem:_update(_)
+  local native = term.native()
+
+  for _, display in ipairs(self.displays) do
+    display:display(self.kernel)
+  end
+
+  term.redirect(native)
 end
 
 return DisplaySystem

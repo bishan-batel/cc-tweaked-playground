@@ -1,13 +1,20 @@
-local Display = require("display")
+local Display = require("display.init")
+local class = require "..class"
 
 ---@class rofl.CaptainDisplayNav : rofl.Display
-local CaptainDisplayNav = Display:new(
-  peripheral.wrap("monitor_12") --[[@as ccTweaked.peripheral.Monitor]]
-)
-CaptainDisplayNav.refreshRate = 5
-CaptainDisplayNav.__index = CaptainDisplayNav
+local CaptainDisplayNav = {}
+
+class.derived(CaptainDisplayNav, Display)
+
+---@param monitor string
+function CaptainDisplayNav.new(monitor)
+  local self = Display.new(monitor)
+  self = setmetatable(self, CaptainDisplayNav)
+  return self
+end
 
 function CaptainDisplayNav:_draw(kernel)
+  print(math.random())
 end
 
 return CaptainDisplayNav

@@ -76,7 +76,7 @@ function Propeller:sendRpm()
 
   -- rpm = math.min(rpm, 220)
 
-  self.speedController.setTargetSpeed(rpm)
+  self.speedController.setTargetSpeed(math.round(rpm))
 
   if self.inverse then rpm = -rpm end
   self.lastSentRpm = rpm
@@ -101,13 +101,11 @@ function Propeller:calculateRpm()
   return rpm
 end
 
----@param yaw number The yaw of the ship in degrees
----@param roll number The roll of the ship in degrees
----@param pitch number The pitch of the ship
+---@param angles EulerAngles
 ---@return Vector
-function Propeller:calculateDir(yaw, roll, pitch)
+function Propeller:calculateDir(angles)
   local direction = Matrix.fromVector(self.direction)
-  local rotation = Matrix.fromEuler(roll, pitch, yaw)
+  local rotation = Matrix.fromEuler(angles)
   return (rotation * direction):toVector()
 end
 
@@ -115,18 +113,18 @@ end
 --- @param thrust number Required Thrust
 --- @param airPressure number Air Presure of the bearing
 --- @param numSails integer Number of sails on the bearing
---- @param direction Vector Direction the propeller is facing
---- @param velocity Vector?
+--- @param normal Vector Direction the propeller is facing
+--- @param velocity Vector? shipVelocity
 function Propeller.computeRequiredRpm(
   thrust,
   airPressure,
   numSails,
-  direction,
+  normal,
   velocity
 )
   velocity = velocity or vector.new(0, 0, 0)
 
-  local propellerVelocity = velocity:dot(direction)
+  local propellerVelocity = velocity:dot(normal) * -1
 
   local CT = Propeller.THRUST_CONFIG
   local CA = Propeller.AIRFLOW_CONFIG
@@ -136,6 +134,68 @@ function Propeller.computeRequiredRpm(
   local velocityTerm = propellerVelocity / (math.sqrt(nSails) * CA)
 
   return thrustTerm - velocityTerm
+end
+
+--- Computes the requried RPM sent to 2 propeller bearings relatively on top of
+--- each other
+---@param thrust number Required Thrust
+---@param numSails integer Number of sails on the bearing
+---@param velocity Vector shipVelocity
+---@param airPressure1 number Air Presure of the first bearing
+---@param normal1 Vector Direction the propeller is facing
+---@param airPressure2 number Air Presure of the second bearing
+---@param normal2 Vector Direction the propeller is facing
+---@return number
+function Propeller.computeRequiredRpmForDoubleBearing(
+  thrust,
+  numSails,
+  velocity,
+  airPressure1,
+  normal1,
+  airPressure2,
+  normal2
+)
+  local CT = Propeller.THRUST_CONFIG
+  local CA = Propeller.AIRFLOW_CONFIG
+  local N = numSails
+
+  local u = normal1:dot(velocity)
+  local v = normal2:dot(velocity)
+
+  local mainDenom = (N ^ 1.5) * CT * (airPressure1 + airPressure2)
+  local secondDenom = CA * math.sqrt(N) * (airPressure1 + airPressure2)
+
+  local sumUv = u * airPressure1 + v * airPressure2
+
+  return thrust / mainDenom + sumUv / secondDenom
+end
+
+---@param rpm number
+---@param numSails integer
+---@param pressure number
+---@param velocity Vector
+---@param normal Vector
+function Propeller.computeThrust(
+  rpm,
+  numSails,
+  pressure,
+  velocity,
+  normal
+)
+  local N = numSails
+
+  local v = normal:dot(velocity)
+
+  local velTerm = 1 - (v / Propeller.computeAirflow(rpm, numSails))
+  local mainTerm = (N ^ 1.5) * Propeller.THRUST_CONFIG * rpm
+
+  return mainTerm * velTerm * pressure
+end
+
+---@param rpm number
+---@param numSails integer
+function Propeller.computeAirflow(rpm, numSails)
+  return rpm * Propeller.AIRFLOW_CONFIG * math.sqrt(numSails)
 end
 
 return Propeller

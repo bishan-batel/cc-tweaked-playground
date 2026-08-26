@@ -5,32 +5,43 @@
 local Display = {}
 Display.__index = Display
 
----@param monitor ccTweaked.peripheral.Monitor
-function Display:new(monitor)
+---@param monitor ccTweaked.peripheral.Monitor|string
+---@return rofl.Display
+function Display.new(monitor)
+  if type(monitor) == "string" then
+    monitor = peripheral.wrap(monitor) --[[@as ccTweaked.peripheral.Monitor]]
+    assert(monitor)
+  end
+
   local instance = {
     monitor = monitor,
-    refreshRate = 60,
-    lastDrawTime = 0,
+    refreshRate = 1,
+    lastDrawTime = math.random(),
   }
-  setmetatable(instance, self)
+  setmetatable(instance, Display)
   return instance
 end
 
 ---@param kernel rofl.Kernel
 function Display:display(kernel)
   self.lastDrawTime = self.lastDrawTime + kernel.dt
+  local renderDelay = (1.0 / (self.refreshRate + 1))
 
-  if self.lastDrawTime > 1.0 / self.refreshRate then
+  -- print(self.refreshRate)
+
+  if self.lastDrawTime > renderDelay then
     self.lastDrawTime = 0
 
-    local native = term.native()
-    term.redirect(self.monitor)
+    local old = term.redirect(self.monitor)
     self:_draw(kernel)
-    term.redirect(native)
+    term.redirect(old)
   end
 end
 
 ---@param kernel rofl.Kernel
-function Display:_draw(kernel) end
+function Display:init(kernel) _ = kernel end
+
+---@param kernel rofl.Kernel
+function Display:_draw(kernel) _ = kernel end
 
 return Display

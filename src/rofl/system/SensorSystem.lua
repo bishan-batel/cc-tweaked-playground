@@ -17,10 +17,14 @@ local ANCHOR_CHANNEL = 6969
 ---@field altitudeBack number
 ---@field altitude number
 ---@field anchorPosition ccTweaked.Vector
----@field pitch number
----@field yaw number
----@field roll number
-local SensorSystem = {}
+---@field pitch number Pitch of the ship
+---@field yaw number Yaw of the ship
+---@field roll number Roll of the ship
+---@field shipAngles EulerAngles Pitch,Yaw, & Roll of the Ship
+local SensorSystem = {
+  SEA_LEVEL = 90
+}
+
 SensorSystem.__index = SensorSystem
 
 ---@param kernel rofl.Kernel
@@ -61,11 +65,21 @@ function SensorSystem:backgroundRoutineAnchorPosition()
 
     if type(message) == "table" then
       self.anchorPosition = vector.new(message.x, message.y, message.z)
-      self.anchorPosition = self.anchorPosition:add(vector.new(0.5, 0.5, 0.5))
+      -- self.anchorPosition = self.anchorPosition:add(vector.new(0.5, 0.5, 0.5))
       settings.set(ANCHOR_SETTING, self.anchorPosition)
       settings.save(SENSORS_CONFIG_PATH)
     end
   end
+end
+
+---@private
+function SensorSystem:recomputeAverageAltitude()
+  --- prevent null values
+  self.altitudeBack = self.altitudeBack or self.SEA_LEVEL
+  self.altitudeFront = self.altitudeFront or self.altitudeBack
+
+  --- compute average
+  self.altitude = (self.altitudeBack + self.altitudeFront) / 2
 end
 
 function SensorSystem:refresh()
@@ -79,19 +93,25 @@ function SensorSystem:refresh()
     function() self.angularVelocity = sublevel.getAngularVelocity() end,
     function()
       self.altitudeBack = sensors.back.altitude:getHeight()
-      self.altitudeFront = self.altitudeFront or self.altitudeBack
-      self.altitude = (self.altitudeBack + self.altitudeFront) / 2
+      self:recomputeAverageAltitude();
     end,
     function()
       self.altitudeFront = sensors.front.altitude:getHeight()
-      self.altitudeBack = self.altitudeBack or self.altitudeFront
-      self.altitude = (self.altitudeBack + self.altitudeFront) / 2
+      self:recomputeAverageAltitude()
     end,
     function()
       local pose = sublevel.getLogicalPose()
       self.orientation = pose.orientation
       self.pitch, self.yaw, self.roll = pose.orientation:toEuler()
+
       self.rotationPoint = pose.rotationPoint
+
+      self.shipAngles = {
+        yaw = self.yaw,
+        pitch = self.pitch,
+        roll = self.roll
+      }
+      self.shipPosition = pose.position
     end,
     function()
       local old = self.angularVelocity or vector.new(0, 0, 0)
@@ -109,6 +129,16 @@ function SensorSystem:refresh()
         self.angularAcceleration = vector.new(0, 0, 0)
         self.angularVelocityLastUpdated = now
       end
+    end,
+    function()
+      local raw = aero.getRaw()
+      local pressure = raw.pressureFunction
+
+      ---@param y number
+      ---@return number
+      self.pressureFunc = function(y)
+        return pressure.evaluateFunction(y)
+      end
     end
   })
 end
@@ -121,6 +151,7 @@ function SensorSystem:_init()
   self:refresh()
 end
 
-function SensorSystem:_update(_) end
+function SensorSystem:_update(dt)
+end
 
 return SensorSystem

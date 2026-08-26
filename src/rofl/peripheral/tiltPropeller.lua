@@ -1,3 +1,4 @@
+local class = require "..class"
 local Propeller = require("peripheral.propeller")
 
 ---@class rofl.TiltPropeller: rofl.Propeller
@@ -6,7 +7,7 @@ local Propeller = require("peripheral.propeller")
 ---@field deltaTilt rofl.Propeller.Offsets Offset tilt from base
 ---@field lastSentTilt number
 local TiltPropeller = {}
-TiltPropeller.__index = TiltPropeller
+class.derived(TiltPropeller, Propeller)
 
 ---@param name string
 ---@param speedControl cctweaked.peripheral.RotationSpeedController|string
@@ -22,7 +23,7 @@ function TiltPropeller.new(
   direction,
   inverse
 )
-  self = Propeller.new(
+  local self = Propeller.new(
     name,
     speedControl,
     relativePosition,
@@ -38,9 +39,12 @@ function TiltPropeller.new(
 
   assert(tiltAdapter, "Tilt Adapter must not be nil for Propeller" .. name)
 
+  ---@cast self rofl.TiltPropeller
   self.baseTilt = 0
-  self.deltaTilt = 0
+  self.deltaTilt = {}
   self.lastSentTilt = 0
+
+  return self
 end
 
 ---@param baseTilt number?
@@ -87,11 +91,11 @@ function TiltPropeller:sendTilt()
   self.lastSentTilt = tilt
 end
 
----@param yaw number The yaw of the ship in degrees
----@param roll number The roll of the ship in degrees
----@param pitch number The pitch of the ship
-function TiltPropeller:calculateDir(yaw, roll, pitch)
-  return self:calculateDir(yaw, roll, pitch + (self.lastSentTilt or 0))
+---@param angles EulerAngles
+---@return Vector
+function TiltPropeller:calculateDir(angles)
+  angles.pitch = angles.pitch + (self.lastSentTilt or 0)
+  return Propeller.calculateDir(self, angles)
 end
 
 return TiltPropeller

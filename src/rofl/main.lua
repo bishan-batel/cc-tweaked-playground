@@ -142,11 +142,11 @@ function Kernel:_mainLoop()
     local currentTime = os.epoch("utc")
     self.dt = (currentTime - previousTime) / 1000.0
     self.uptime = self.uptime + self.dt
+    previousTime = currentTime
 
     self:_update(self.dt)
 
-    previousTime = currentTime
-    os.sleep(0.01)
+    os.sleep(0.00)
   end
 end
 

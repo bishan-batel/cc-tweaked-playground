@@ -1,8 +1,13 @@
-local Display = require("display")
+local Display = require("display.init")
+local class = require "..class"
 
 local colorutils = require("colorutils")
 
----@alias rofl.CaptainDisplayLeft.Data { altitude: number, velocityForward: number, airPressure: number, heading: number }
+---@class rofl.CaptainDisplayLeft.Data
+---@field altitude number
+---@field velocityForward number
+---@field airPressure number
+---@field heading number
 
 local VELOCITY_GRADIENT = {
   colors.white,
@@ -31,13 +36,24 @@ local PRESSURE_GRADIENT = {
 local MAX_VELOCITY = 20
 
 ---@class rofl.CaptainDisplayLeft : rofl.Display
-local CaptainDisplayLeft = Display:new(
-  peripheral.wrap("monitor_11") --[[@as ccTweaked.peripheral.Monitor]]
-)
+local CaptainDisplayLeft = {}
+class.derived(CaptainDisplayLeft, Display)
 
-CaptainDisplayLeft.refreshRate = 20
+---@return rofl.CaptainDisplayLeft
+---@param monitor string
+function CaptainDisplayLeft.new(monitor)
+  local self = Display.new(monitor)
 
-CaptainDisplayLeft.__index = CaptainDisplayLeft
+  self = setmetatable(
+    self,
+    CaptainDisplayLeft
+  )
+
+  self.refreshRate = 5
+
+  ---@type rofl.CaptainDisplayLeft
+  return self
+end
 
 function CaptainDisplayLeft:_draw(kernel)
   local data = self:getInfoData(kernel)
@@ -51,7 +67,7 @@ function CaptainDisplayLeft:_draw(kernel)
   self:_drawHeading(kernel, data)
 end
 
----@param rofl Kernel
+---@param rofl rofl.Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawAlt(rofl, data)
   term.setCursorPos(1, 1)
@@ -65,7 +81,7 @@ function CaptainDisplayLeft:_drawAlt(rofl, data)
   term.write(" m")
 end
 
----@param rofl Kernel
+---@param rofl rofl.Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawAirPressure(rofl, data)
   term.setCursorPos(1, 3)
@@ -79,7 +95,7 @@ function CaptainDisplayLeft:_drawAirPressure(rofl, data)
   term.write(" %")
 end
 
----@param rofl Kernel
+---@param rofl rofl.Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawVelocity(rofl, data)
   term.setCursorPos(1, 5)
@@ -102,7 +118,7 @@ function CaptainDisplayLeft:_drawVelocity(rofl, data)
   term.write(" m/s")
 end
 
----@param rofl Kernel
+---@param rofl rofl.Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawHeading(rofl, data)
   local topLeft = vector.new(17, 1, 1)
@@ -139,7 +155,7 @@ function CaptainDisplayLeft:_drawHeading(rofl, data)
     [225] = '\\',
     [270] = '|',
     [315] = '/',
-    [360] = '-'
+    [360] = '-',
   }
 
   local index = math.round(headingDegree / 45) * 45
@@ -149,6 +165,7 @@ function CaptainDisplayLeft:_drawHeading(rofl, data)
 
   term.setCursorPos(tip.x, tip.y)
   term.write(dirChars[index])
+  term.write(index)
 
   term.setCursorPos(topLeft.x, topLeft.y)
 
@@ -173,16 +190,15 @@ function CaptainDisplayLeft:_drawHeading(rofl, data)
   term.write("W")
 end
 
----@param rofl Kernel
+---@param kernel rofl.Kernel
 ---@return rofl.CaptainDisplayLeft.Data
-function CaptainDisplayLeft:getInfoData(rofl)
+function CaptainDisplayLeft:getInfoData(kernel)
+  local sensors = kernel:getSystem("rofl.SensorSystem")
   return {
-    altitude = (rofl.sensors.front.altitude:getHeight() + rofl.sensors.back.altitude:getHeight()) /
-      2,
-    airPressure = (rofl.sensors.front.altitude:getAirPressure() + rofl.sensors.back.altitude:getAirPressure()) /
-      2,
-    velocityForward = rofl.sensors.front.velocityForward:getVelocity(),
-    heading = rofl.sensors.navigation_table.getRelativeAngleRad(),
+    altitude = sensors.altitude,
+    airPressure = sensors.airPressure,
+    velocityForward = sensors.velocity:length(),
+    heading = math.rad(0)
   }
 end
 

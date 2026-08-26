@@ -1,3 +1,5 @@
+require "..mathutils"
+
 local System = require "system"
 local Propeller = require "peripheral.propeller"
 local TiltPropeller = require "peripheral.tiltPropeller"
@@ -5,14 +7,15 @@ local TiltPropeller = require "peripheral.tiltPropeller"
 local pid = require "..pid"
 local Matrix = require "..matrix"
 
+
 local PROP_CALIBRATION = {
-  ["BL"] = 0.92,
-  ["ML"] = 0.930,
+  -- ["BL"] = 0.92,
+  -- ["ML"] = 0.930,
 }
 
 local PITCH_AXIS = vector.new(-1, 0, 0)
 local YAW_AXIS = vector.new(0, 1, 0)
-local ROLL_AXIS = vector.new(0, 0, 1)
+local ROLL_AXIS = vector.new(0, 0, -1)
 
 --- Directions
 local DOWN = vector.new(0, -1, 0)
@@ -20,30 +23,22 @@ local RIGHT = vector.new(1, 0, 0)
 local LEFT = RIGHT:mul(-1)
 
 
-local PROPELLER_CENTER_OF_MASS_OFFSET = vector.new(
-  0 * 0.4475369341671467,
-  0.0,
-  0.0
-)
-
-
-
 local TARGET_PITCH = 0
 local TARGET_ROLL = 0
 
-local BALANCE_FACTOR = 1.0
+local BALANCE_FACTOR = 100.0
 local EULER_MAX_ACCEL = 5
 
 ---@type pid.Config
 local PID_ANGULAR_CONFIG = {
-  proportion = 5.5, -- Aggressiveness of correction
-  integral = 10.5,  -- Fixes persistent unbalance over time
-  derivative = 5.0, -- Damping,
-  integralMax = 2,
+  proportion = 1.5, -- Aggressiveness of correction
+  integral = 0.1,   -- Fixes persistent unbalance over time
+  derivative = 1.0, -- Damping,
+  integralMax = 5,
   filterTime = 0.15
 }
 
-local ALTITUDE_FACTOR = 0.00
+local ALTITUDE_FACTOR = 1.00
 local ALTITUDE_CORRECTION_MAX = 0.1
 local ALTITUDE_CORRECTION_MIN = -0.1
 
@@ -97,8 +92,11 @@ end
 
 ---@private
 function PropellerControlSystem:findPropellers()
-  local PROPELLER_BREADTH = 29.5
-  local PROPELLER_Y = -3
+  print("Finding Propellers")
+  local OFF_R = 30 + 0.5
+  local OFF_L = -30 + 0.5
+  local OFF_Y = -3 + 0.5
+  local OFFZ = 0.5
 
   self.strafePropellers = {
     Propeller.new(
@@ -127,48 +125,52 @@ function PropellerControlSystem:findPropellers()
     ),
   }
 
+
   self.propellers = {
     TiltPropeller.new(
       "BR",
       "Create_RotationSpeedController_17",
       "tilt_adapter_5",
-      vector.new(PROPELLER_BREADTH, PROPELLER_Y, 37),
+      vector.new(OFF_R, OFF_Y, 38 + OFFZ),
       DOWN
     ),
     TiltPropeller.new(
       "BL",
       "Create_RotationSpeedController_18",
       "tilt_adapter_4",
-      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, 37),
-      DOWN
+      vector.new(OFF_L, OFF_Y, 38 + OFFZ),
+      DOWN,
+      true
     ),
     TiltPropeller.new(
       "MR",
       "Create_RotationSpeedController_16",
       "tilt_adapter_16",
-      vector.new(PROPELLER_BREADTH, PROPELLER_Y, -1),
+      vector.new(OFF_R, OFF_Y, -1 + OFFZ),
       DOWN
     ),
     TiltPropeller.new(
       "ML",
       "Create_RotationSpeedController_19",
       "tilt_adapter_15",
-      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, -1),
-      DOWN
+      vector.new(OFF_L, OFF_Y, -1 + OFFZ),
+      DOWN,
+      true
     ),
     TiltPropeller.new(
       "FR",
       "Create_RotationSpeedController_15",
       "tilt_adapter_6",
-      vector.new(PROPELLER_BREADTH, PROPELLER_Y, -42.5),
+      vector.new(OFF_R, OFF_Y, -42),
       DOWN
     ),
     TiltPropeller.new(
       "FL",
       "Create_RotationSpeedController_20",
       "tilt_adapter_7",
-      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, -42.5),
-      DOWN
+      vector.new(OFF_L, OFF_Y, -42),
+      DOWN,
+      true
     ),
   }
 end
@@ -182,7 +184,7 @@ function PropellerControlSystem:initializePids()
 end
 
 ---@private
-function PropellerControlSystem:_update(dt)
+function PropellerControlSystem:_update(_)
   local engine = self.kernel.engine
   local sensors = self.kernel:getSystem("rofl.SensorSystem")
 
@@ -191,7 +193,28 @@ function PropellerControlSystem:_update(dt)
     return
   end
 
+
+  for _, propeller in ipairs(self.strafePropellers) do
+    propeller:resetRpm(0)
+  end
+
   self:recomputePropellerRpm(sensors)
+  self:updatePropellerTilts(sensors)
+end
+
+---@param sensors rofl.SensorSystem
+function PropellerControlSystem:updatePropellerTilts(sensors)
+  local tilt = -sensors.shipAngles.pitch * 0
+
+
+  for _, propeller in ipairs(self.propellers) do
+    --- Apply calibration if needed
+    if PROP_CALIBRATION[propeller.name] then
+      tilt = tilt + PROP_CALIBRATION[propeller.name]
+    end
+
+    propeller:resetTilt(tilt)
+  end
 end
 
 function PropellerControlSystem:resetPropellers()
@@ -231,7 +254,7 @@ end
 function PropellerControlSystem:getRequirements(sensors)
   local dt = self.kernel.dt
 
-  local gravity = sensors.gravity
+  local gravity = sensors.gravity:mul(1.0)
   local altitude = sensors.altitude
 
   local pitchAcc, rollAcc = self:updatePitchRollCorrections(
@@ -272,8 +295,10 @@ end
 ---@param sensors rofl.SensorSystem
 function PropellerControlSystem:recomputePropellerRpm(sensors)
   local gravity = sensors.gravity
-  local airPressure = sensors.airPressure
   local velocity = sensors.velocity
+
+  --- ship position relative to anchor
+  local shipPosition = sensors.shipPosition
 
   local shipAngles = {
     yaw = sensors.yaw,
@@ -304,43 +329,50 @@ function PropellerControlSystem:recomputePropellerRpm(sensors)
   self:applyThrustAllocations(
     thrustAllocations,
     shipAngles,
-    velocity,
-    airPressure
+    shipPosition,
+    anchorPosition,
+    centerOfMass,
+    velocity
   )
 end
 
 ---@param thrustAllocations { [string]: number }
----@param shipAngles GimbalAngles
+---@param shipAngles EulerAngles
+---@param shipPosition Vector
+---@param anchorPosition Vector
+---@param centerOfMass Vector
 ---@param velocity Vector
----@param airPressure number
 function PropellerControlSystem:applyThrustAllocations(
   thrustAllocations,
   shipAngles,
-  velocity,
-  airPressure
+  shipPosition,
+  anchorPosition,
+  centerOfMass,
+  velocity
 )
+  self.lastThrustAllocation = thrustAllocations
+
+  local funcs = {}
+
   for _, propeller in ipairs(self.propellers) do
     local requiredThrust = thrustAllocations[propeller.name] or 0
 
-    propeller:resetRpm(
-      self:getRequiredRpmForPropeller(
-        propeller,
-        shipAngles,
-        velocity,
-        airPressure,
-        requiredThrust
+    table.insert(funcs, function()
+      propeller:resetRpm(
+        self:getRequiredRpmForPropeller(
+          propeller,
+          shipAngles,
+          shipPosition,
+          anchorPosition,
+          centerOfMass,
+          velocity,
+          requiredThrust
+        )
       )
-    )
-
-    local tilt = -shipAngles.pitch * 0
-
-    --- Apply calibration if needed
-    if PROP_CALIBRATION[propeller.name] then
-      tilt = tilt + PROP_CALIBRATION[propeller.name]
-    end
-
-    propeller:resetTilt(tilt)
+    end)
   end
+
+  parallel.waitForAll(table.unpack(funcs))
 end
 
 --- Calculates exactly how much thrust each propeller needs based on distance from CoM
@@ -349,7 +381,7 @@ end
 ---@param requirements rofl.PropellerControlSystem.RequiredState
 ---@param gravity ccTweaked.Vector
 ---@param mass number
----@param shipAngles GimbalAngles
+---@param shipAngles EulerAngles
 ---@return { string: number } propellerThrustRatios
 function PropellerControlSystem:solveThrustLeastSquared(
   centerOfMass,
@@ -367,16 +399,12 @@ function PropellerControlSystem:solveThrustLeastSquared(
   local rowYaw = {}
   local rowLift = {}
 
-  local upDir = gravity:mul(-1):normalize()
+  local upDir = gravity:normalize()
 
   for _, propeller in ipairs(self.propellers) do
     local pos = propeller.relativePosition:add(anchorPosition):sub(centerOfMass)
 
-    local propellerDir = propeller:calculateDir(
-      shipAngles.yaw,
-      shipAngles.roll,
-      shipAngles.pitch
-    )
+    local propellerDir = propeller:calculateDir(shipAngles)
 
 
     local forceVector = propellerDir
@@ -400,7 +428,6 @@ function PropellerControlSystem:solveThrustLeastSquared(
   local inverse, inverseError = ATA:inverse()
 
   if not inverse then
-    print("Failed to find sufficient inverse for solution ", inverseError)
     local equalDistribution = requirements.lift / #self.propellers
     for _, propeller in ipairs(self.propellers) do
       allocations[propeller.name] = equalDistribution * 0
@@ -436,7 +463,7 @@ function PropellerControlSystem:updatePitchRollCorrections(
   pitch,
   roll
 )
-  local errPitch, errRoll = TARGET_PITCH - pitch, TARGET_ROLL - roll
+  local errPitch, errRoll = -pitch, -roll
 
   -- calculate required pitch and roll correction
   local pitchCorrection = self.pidPitch:update(errPitch, dt)
@@ -465,10 +492,6 @@ function PropellerControlSystem:updateAltitudeCorrection(
   return altitudeCorrection
 end
 
-function PropellerControlSystem:getNumBearings()
-  return #self.propellers * BEARINGS_PER_PROPELLER
-end
-
 ---@param mainBodyCenter ccTweaked.Vector Main body center of mass (sublevel.getCenterOfMass())
 ---@param mainBodyMass number Mass of the main ship body (sublevel.getMass())
 ---@param anchorPosition ccTweaked.Vector Anchor for referencing propellers
@@ -483,19 +506,20 @@ function PropellerControlSystem:computeShipCenterOfMass(
   }
 
 
-  for _, propeller in ipairs(self.propellers) do
-    local propellerMass, offset = self:getMassPerPropeller(propeller)
-    local globalPos = propeller.relativePosition
+  -- for _, propeller in ipairs(self.propellers) do
+  --   local propellerMass, offset = self:getMassPerPropeller(propeller)
+  --   local globalPos = propeller.relativePosition
+  --
+  --   table.insert(objects, {
+  --     position = globalPos:add(offset),
+  --     mass = propellerMass
+  --   })
+  -- end
 
-    table.insert(objects, {
-      position = globalPos:add(offset),
-      mass = propellerMass
-    })
-  end
+  -- local mainCenter, mass = PropellerControlSystem.computeCenterOfMass(objects)
 
-  local mainCenter, mass = PropellerControlSystem.computeCenterOfMass(objects)
-
-  return mainCenter:add(anchorPosition), mass
+  -- return mainCenter:add(anchorPosition), mass
+  return mainBodyCenter, mainBodyMass
 end
 
 ---@param objects [{position: ccTweaked.Vector, mass: number }]
@@ -513,21 +537,10 @@ function PropellerControlSystem.computeCenterOfMass(objects)
 end
 
 ---@param propeller rofl.Propeller
----@return number, Vector
-function PropellerControlSystem:getMassPerPropeller(propeller)
-  local offset = PROPELLER_CENTER_OF_MASS_OFFSET
-
-  if propeller.name:find("L") then
-    offset.x = -offset.x
-    offset.z = -offset.z
-  end
-
-  return 506.5, offset
-end
-
----@param propeller rofl.Propeller
----@param shipAngles GimbalAngles
----@param airPressure number
+---@param shipAngles EulerAngles
+---@param shipPosition Vector
+---@param anchorPosition Vector
+---@param centerOfMass Vector
 ---@param velocity ccTweaked.Vector
 ---@param requiredThrust number
 ---@return number
@@ -535,30 +548,86 @@ end
 function PropellerControlSystem:getRequiredRpmForPropeller(
   propeller,
   shipAngles,
+  shipPosition,
+  anchorPosition,
+  centerOfMass,
   velocity,
-  airPressure,
   requiredThrust
 )
   --- number of sails per each propeller *bearing*
-  local NUM_SAILS = 40 * 4
-  local NUM_BEARINGS = 2
+  local NUM_SAILS = 160
 
-  requiredThrust = requiredThrust / NUM_BEARINGS
+  -- requiredThrust = requiredThrust / NUM_BEARINGS
+  -- requiredThrust = requiredThrust / 1.012777
   -- requiredThrust = requiredThrust / 1.01793445653
 
-  local propellerDir = propeller:calculateDir(
-    shipAngles.yaw,
-    shipAngles.roll,
-    shipAngles.pitch
+  local propellerDir = propeller:calculateDir(shipAngles)
+
+  local relPosCenter =
+    propeller.relativePosition:add(anchorPosition):sub(centerOfMass)
+
+  local relPos1 = relPosCenter:add(vector.new(0, -1, 0))
+  local relPos2 = relPosCenter:add(vector.new(0, 1, 0))
+
+  local rotation = Matrix.fromEuler(shipAngles)
+
+  local dir1 = propellerDir
+  local dir2 = propellerDir:mul(-1)
+  dir1, dir2 = dir2, dir1
+
+  local pos1 =
+    (rotation * Matrix.fromVector(relPos1)):toVector():add(shipPosition)
+  local pos2 =
+    (rotation * Matrix.fromVector(relPos2)):toVector():add(shipPosition)
+
+
+  local sensors = self.kernel:getSystem("rofl.SensorSystem")
+
+
+
+  local pressure1 = sensors.pressureFunc(pos1.y)
+  local pressure2 = sensors.pressureFunc(pos2.y)
+
+  -- return Propeller.computeRequiredRpm(
+  --   requiredThrust,
+  --   airPressure,
+  --   NUM_SAILS,
+  --   propellerDir,
+  --   velocity
+  -- )
+
+  local bestRpm = 0
+  local bestThrustErr = requiredThrust
+
+  local rpm = Propeller.computeRequiredRpmForDoubleBearing(
+    requiredThrust,
+    NUM_SAILS,
+    velocity,
+    pressure1,
+    dir1,
+    pressure2,
+    dir2
   )
 
-  return Propeller.computeRequiredRpm(
-    requiredThrust,
-    airPressure,
-    NUM_SAILS,
-    propellerDir,
-    velocity
-  )
+  for i = -1, 1, 1 do
+    local testRpm = math.round(rpm + i * 0.5)
+    local thrust = Propeller.computeThrust(
+      testRpm,
+      NUM_SAILS,
+      pressure1,
+      velocity,
+      dir1
+    )
+
+    local thrustErr = math.abs(requiredThrust - thrust)
+    if thrustErr < bestThrustErr then
+      bestRpm = testRpm
+      bestThrustErr = thrustErr
+    end
+  end
+
+
+  return bestRpm
 end
 
 return PropellerControlSystem

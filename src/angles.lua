@@ -1,4 +1,4 @@
----@class GimbalAngles
+---@class EulerAngles
 ---@field yaw number
 ---@field pitch number
 ---@field roll number
