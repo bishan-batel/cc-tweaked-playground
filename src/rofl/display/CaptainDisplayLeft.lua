@@ -39,19 +39,19 @@ CaptainDisplayLeft.refreshRate = 20
 
 CaptainDisplayLeft.__index = CaptainDisplayLeft
 
-function CaptainDisplayLeft:_draw(rofl)
-  local data = self:getInfoData(rofl)
+function CaptainDisplayLeft:_draw(kernel)
+  local data = self:getInfoData(kernel)
 
   local width, height = term.getSize()
   paintutils.drawFilledBox(1, 1, width, height, colors.black)
 
-  self:_drawAlt(rofl, data)
-  self:_drawAirPressure(rofl, data)
-  self:_drawVelocity(rofl, data)
-  self:_drawHeading(rofl, data)
+  self:_drawAlt(kernel, data)
+  self:_drawAirPressure(kernel, data)
+  self:_drawVelocity(kernel, data)
+  self:_drawHeading(kernel, data)
 end
 
----@param rofl rofl.Roflcopter
+---@param rofl Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawAlt(rofl, data)
   term.setCursorPos(1, 1)
@@ -65,7 +65,7 @@ function CaptainDisplayLeft:_drawAlt(rofl, data)
   term.write(" m")
 end
 
----@param rofl rofl.Roflcopter
+---@param rofl Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawAirPressure(rofl, data)
   term.setCursorPos(1, 3)
@@ -79,7 +79,7 @@ function CaptainDisplayLeft:_drawAirPressure(rofl, data)
   term.write(" %")
 end
 
----@param rofl rofl.Roflcopter
+---@param rofl Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawVelocity(rofl, data)
   term.setCursorPos(1, 5)
@@ -102,7 +102,7 @@ function CaptainDisplayLeft:_drawVelocity(rofl, data)
   term.write(" m/s")
 end
 
----@param rofl rofl.Roflcopter
+---@param rofl Kernel
 ---@param data rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:_drawHeading(rofl, data)
   local topLeft = vector.new(17, 1, 1)
@@ -173,7 +173,7 @@ function CaptainDisplayLeft:_drawHeading(rofl, data)
   term.write("W")
 end
 
----@param rofl rofl.Roflcopter
+---@param rofl Kernel
 ---@return rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:getInfoData(rofl)
   return {

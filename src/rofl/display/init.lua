@@ -16,21 +16,21 @@ function Display:new(monitor)
   return instance
 end
 
----@param rofl rofl.Roflcopter
-function Display:display(rofl)
-  self.lastDrawTime = self.lastDrawTime + rofl.dt
+---@param kernel rofl.Kernel
+function Display:display(kernel)
+  self.lastDrawTime = self.lastDrawTime + kernel.dt
 
   if self.lastDrawTime > 1.0 / self.refreshRate then
     self.lastDrawTime = 0
 
     local native = term.native()
     term.redirect(self.monitor)
-    self:_draw(rofl)
+    self:_draw(kernel)
     term.redirect(native)
   end
 end
 
----@param rofl rofl.Roflcopter
-function Display:_draw(rofl) end
+---@param kernel rofl.Kernel
+function Display:_draw(kernel) end
 
 return Display

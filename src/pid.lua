@@ -4,6 +4,7 @@ local pid = {
 
 ---@class pid.Number
 ---@field config pid.Config
+---@field lastCorrection number
 ---@field private integral number
 ---@field private lastError number
 ---@field filteredDerivative number Smoothed derivative value
@@ -23,6 +24,7 @@ pid.Number.__index = pid.Number
 function pid.Number.new(config)
   local self = setmetatable({}, pid.Number)
   self.config = config
+  self.lastCorrection = 0
   self:reset()
   return self
 end
@@ -70,7 +72,9 @@ function pid.Number:update(error, dt)
   end
 
   -- combine error terms
-  return (error * kp) + (self.integral * ki) + (rawDerivative * kd)
+  self.lastCorrection = (error * kp) + (self.integral * ki) +
+    (rawDerivative * kd)
+  return self.lastCorrection
 end
 
 ---@module "pid"

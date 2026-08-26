@@ -1,7 +1,7 @@
 local Engine = require("engine")
 
----@class rofl.Roflcopter
-local Roflcopter = {
+---@class rofl.Kernel
+local Kernel = {
 
   ---@type {[string]: rofl.System}
   systems = {},
@@ -66,7 +66,7 @@ local Roflcopter = {
   auxEngine = nil,
 }
 
-function Roflcopter:_init()
+function Kernel:_init()
   self.engine = Engine.new(
     self,
     "Main Engine",
@@ -102,19 +102,19 @@ function Roflcopter:_init()
 end
 
 ---@param system rofl.System
-function Roflcopter:addSystem(system)
+function Kernel:addSystem(system)
   self.systems[system.name] = system
 end
 
 ---@generic T : rofl.System
 ---@param name `T`
 ---@return T
-function Roflcopter:getSystem(name)
+function Kernel:getSystem(name)
   return self.systems[name]
 end
 
 ---@param dt number
-function Roflcopter:_update(dt)
+function Kernel:_update(dt)
   parallel.waitForAll(
     function()
       self.engine:_update(dt);
@@ -135,7 +135,7 @@ function Roflcopter:_update(dt)
   parallel.waitForAll(table.unpack(systemUpdates))
 end
 
-function Roflcopter:_mainLoop()
+function Kernel:_mainLoop()
   local previousTime = os.epoch("utc")
 
   while true do
@@ -151,7 +151,7 @@ function Roflcopter:_mainLoop()
 end
 
 ---@return [function]
-function Roflcopter:_getGlobalThreads()
+function Kernel:_getGlobalThreads()
   local threads = {
     function() self:_mainLoop() end
   }
@@ -166,9 +166,9 @@ function Roflcopter:_getGlobalThreads()
   return threads
 end
 
-function Roflcopter:_run()
+function Kernel:_run()
   self:_init()
   parallel.waitForAny(table.unpack(self:_getGlobalThreads()))
 end
 
-Roflcopter:_run()
+Kernel:_run()

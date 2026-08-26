@@ -5,9 +5,9 @@ local System = require("system")
 local DisplaySystem = {}
 DisplaySystem.__index = DisplaySystem
 
----@param rofl rofl.Roflcopter
-function DisplaySystem.new(rofl)
-  local instance = System.new("rofl.DisplaySystem", rofl)
+---@param kernel rofl.Kernel
+function DisplaySystem.new(kernel)
+  local instance = System.new("rofl.DisplaySystem", kernel)
   setmetatable(instance, DisplaySystem)
 
   return instance
@@ -26,7 +26,7 @@ function DisplaySystem:_update(dt)
   local displayFunctions = {}
   for _, display in ipairs(self._displays) do
     table.insert(displayFunctions, function()
-      display:display(self.rofl)
+      display:display(self.kernel)
     end)
   end
   parallel.waitForAll(table.unpack(displayFunctions))

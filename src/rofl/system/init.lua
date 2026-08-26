@@ -1,17 +1,17 @@
 ---@class rofl.System
 ---@field backgroundRoutines [function]
----@field rofl rofl.Roflcopter
+---@field kernel rofl.Kernel
 ---@field name string
 local System = {}
 System.__index = System
 
 ---@generic T
 ---@param name `T`
----@param rofl rofl.Roflcopter
+---@param kernel rofl.Kernel
 ---@return `T`
-function System.new(name, rofl)
+function System.new(name, kernel)
   local self = setmetatable({}, System)
-  self.rofl = rofl
+  self.kernel = kernel
   self.name = name
   self.backgroundRoutines = {}
 

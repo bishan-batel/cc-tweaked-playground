@@ -63,9 +63,9 @@ function CaptainDisplayVisualizer:_init()
   term.redirect(old)
 end
 
-function CaptainDisplayVisualizer:_draw(rofl)
-  local sensors = rofl:getSystem "rofl.SensorSystem"
-  local engine = rofl.engine
+function CaptainDisplayVisualizer:_draw(kernel)
+  local sensors = kernel:getSystem "rofl.SensorSystem"
+  local engine = kernel.engine
 
 
   self.objects[1]:setRot(

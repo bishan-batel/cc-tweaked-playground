@@ -1,7 +1,9 @@
-local System = require("system")
-local Propeller = require("peripheral.propeller")
-local pid = require("..pid")
-local Matrix = require("..matrix")
+local System = require "system"
+local Propeller = require "peripheral.propeller"
+local TiltPropeller = require "peripheral.tiltPropeller"
+
+local pid = require "..pid"
+local Matrix = require "..matrix"
 
 local PROP_CALIBRATION = {
   ["BL"] = 0.92,
@@ -11,6 +13,11 @@ local PROP_CALIBRATION = {
 local PITCH_AXIS = vector.new(-1, 0, 0)
 local YAW_AXIS = vector.new(0, 1, 0)
 local ROLL_AXIS = vector.new(0, 0, 1)
+
+--- Directions
+local DOWN = vector.new(0, -1, 0)
+local RIGHT = vector.new(1, 0, 0)
+local LEFT = RIGHT:mul(-1)
 
 
 --- smallest possible delta time to prevent division by zero
@@ -25,8 +32,6 @@ local PROPELLER_CENTER_OF_MASS_OFFSET = vector.new(
   0.0,
   0.0
 )
-local PROPELLER_BREADTH = 29.5
-local PROPELLER_Y = -3
 
 --- number of sails per each propeller *bearing*
 local SAILS_PER_BEARING = 40 * 4
@@ -71,18 +76,22 @@ local PID_ALTITUDE_CONFIG = {
 
 ---System for control propellers
 ---@class rofl.PropellerControlSystem : rofl.System
----@field propellers [rofl.Propeller] All propellers attached
+---@field propellers [rofl.TiltPropeller] All tilt propellers attached
+---@field strafePropellers [rofl.Propeller]
 ---@field pidPitch pid.Number
 ---@field pidRoll pid.Number
-local PropellerControlSystem = {}
+local PropellerControlSystem = {
+  --- Wait for how long in between sending RPM and Tilt data
+  SEND_ALL_ROUTINE_WAIT = 0.05
+}
 
 
 PropellerControlSystem.__index = PropellerControlSystem
 
 
----@param rofl rofl.Roflcopter
-function PropellerControlSystem.new(rofl)
-  local instance = System.new("rofl.PropellerControlSystem", rofl)
+---@param kernel rofl.Kernel
+function PropellerControlSystem.new(kernel)
+  local instance = System.new("rofl.PropellerControlSystem", kernel)
   setmetatable(instance, PropellerControlSystem)
 
   instance.backgroundRoutines = {
@@ -93,93 +102,100 @@ function PropellerControlSystem.new(rofl)
 end
 
 function PropellerControlSystem:_init()
-  local strafePropellers = {
-    "Create_RotationSpeedController_22", -- BR
-    "Create_RotationSpeedController_21", -- FR
-    "Create_RotationSpeedController_23", -- BL
-    "Create_RotationSpeedController_24", -- FL
+  self:findPropellers()
+  self:initializePids()
+end
+
+---@private
+function PropellerControlSystem:findPropellers()
+  local PROPELLER_BREADTH = 29.5
+  local PROPELLER_Y = -3
+
+  self.strafePropellers = {
+    Propeller.new(
+      "BR",
+      "Create_RotationSpeedController_22",
+      vector.new(0, 0, 0),
+      RIGHT
+    ),
+    Propeller.new(
+      "FR",
+      "Create_RotationSpeedController_21",
+      vector.new(0, 0, 0),
+      RIGHT
+    ),
+    Propeller.new(
+      "BL",
+      "Create_RotationSpeedController_23",
+      vector.new(0, 0, 0),
+      LEFT
+    ),
+    Propeller.new(
+      "FL",
+      "Create_RotationSpeedController_24",
+      vector.new(0, 0, 0),
+      LEFT
+    ),
   }
 
-
   self.propellers = {
-    self:wrapPropeller(
+    TiltPropeller.new(
       "BR",
       "Create_RotationSpeedController_17",
       "tilt_adapter_5",
-      false,
-      vector.new(PROPELLER_BREADTH, PROPELLER_Y, 37)
+      vector.new(PROPELLER_BREADTH, PROPELLER_Y, 37),
+      DOWN
     ),
-    self:wrapPropeller(
+    TiltPropeller.new(
       "BL",
       "Create_RotationSpeedController_18",
       "tilt_adapter_4",
-      false,
-      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, 37)
+      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, 37),
+      DOWN
     ),
-    self:wrapPropeller(
+    TiltPropeller.new(
       "MR",
       "Create_RotationSpeedController_16",
       "tilt_adapter_16",
-      false,
-      vector.new(PROPELLER_BREADTH, PROPELLER_Y, -1)
+      vector.new(PROPELLER_BREADTH, PROPELLER_Y, -1),
+      DOWN
     ),
-    self:wrapPropeller(
+    TiltPropeller.new(
       "ML",
       "Create_RotationSpeedController_19",
       "tilt_adapter_15",
-      false,
-      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, -1)
+      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, -1),
+      DOWN
     ),
-    self:wrapPropeller(
+    TiltPropeller.new(
       "FR",
       "Create_RotationSpeedController_15",
       "tilt_adapter_6",
-      false,
-      vector.new(PROPELLER_BREADTH, PROPELLER_Y, -42.5)
+      vector.new(PROPELLER_BREADTH, PROPELLER_Y, -42.5),
+      DOWN
     ),
-    self:wrapPropeller(
+    TiltPropeller.new(
       "FL",
       "Create_RotationSpeedController_20",
       "tilt_adapter_7",
-      false,
-      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, -42.5)
+      vector.new(-PROPELLER_BREADTH, PROPELLER_Y, -42.5),
+      DOWN
     ),
   }
+end
 
+---@private
+function PropellerControlSystem:initializePids()
   self.pidPitch = pid.Number.new(PID_ANGULAR_CONFIG)
   self.pidRoll = pid.Number.new(PID_ANGULAR_CONFIG)
   self.pidAltitude = pid.Number.new(PID_ALTITUDE_CONFIG)
-
-  self.pidConfig = PID_ANGULAR_CONFIG
   self.targetAltitude = 90
 end
 
 ---@private
----@param name string
----@param speed string
----@param tilt string
----@param inverse boolean
----@param relativePosition ccTweaked.Vector
-function PropellerControlSystem:wrapPropeller(
-  name,
-  speed,
-  tilt,
-  inverse,
-  relativePosition
-)
-  return Propeller.new(
-    peripheral.wrap(speed) --[[@as cctweaked.peripheral.RotationSpeedController]],
-    peripheral.wrap(tilt) --[[@as cctweaked.peripheral.TiltAdapter]],
-    inverse,
-    relativePosition,
-    name
-  )
-end
-
----@private
 function PropellerControlSystem:_update(dt)
-  local engine = self.rofl.engine
-  local sensors = self.rofl:getSystem("rofl.SensorSystem")
+  local engine = self.kernel.engine
+  local sensors = self.kernel:getSystem("rofl.SensorSystem")
 
   if not engine:isRunning() then
     self:resetPropellers()
@@ -192,9 +208,8 @@ end
 ---@param sensors rofl.SensorSystem
 ---@return rofl.PropellerControlSystem.RequiredState
 function PropellerControlSystem:getRequirements(sensors)
-  local dt = self.rofl.dt
+  local dt = self.kernel.dt
 
-  local angularAcc = sensors.angularAcceleration
   local gravity = sensors.gravity
   local altitude = sensors.altitude
 
@@ -206,11 +221,10 @@ function PropellerControlSystem:getRequirements(sensors)
 
   local altitudeAcc = gravity:length()
 
-  altitudeAcc = altitudeAcc +
-    math.clamp(
-      self:updateAltitudeCorrection(dt, altitude) * ALTITUDE_FACTOR,
-      -ALTITUDE_CORRECTION_MIN, ALTITUDE_CORRECTION_MAX
-    )
+  altitudeAcc = altitudeAcc + math.clamp(
+    self:updateAltitudeCorrection(dt, altitude) * ALTITUDE_FACTOR,
+    -ALTITUDE_CORRECTION_MIN, ALTITUDE_CORRECTION_MAX
+  )
 
   rollAcc = math.clamp(
     rollAcc * BALANCE_FACTOR,
@@ -250,8 +264,6 @@ function PropellerControlSystem:resetAllToBase(sensors)
     sensors.mass,
     sensors.anchorPosition
   )
-
-  print("COM=", centerOfMass)
 
   --- create the desired solution for forces
   local requirements = self:getRequirements(sensors)
@@ -314,7 +326,7 @@ function PropellerControlSystem:solveThrustLeastSquared(
 
   local upDir = gravity:mul(-1):normalize()
 
-  for i, propeller in ipairs(self.propellers) do
+  for _, propeller in ipairs(self.propellers) do
     local pos = propeller.relativePosition:add(anchorPosition):sub(centerOfMass)
 
     local propellerDir = propeller:calculateDir(
@@ -324,22 +336,14 @@ function PropellerControlSystem:solveThrustLeastSquared(
     )
 
 
-    -- print(string.format("%.2f, %.2f, %.2f | %.2f", propellerDir.x, propellerDir
-    --   .y,
-    --   propellerDir.z, propellerDir:length()))
-
-    --- All propellers fully contribute to lift
-
     local forceVector = propellerDir
 
     local torqueVector = pos:cross(forceVector)
 
-    --- Z offset contributes to pitch
-    rowPitch[i] = PITCH_AXIS:dot(torqueVector)
-    -- print(torqueVector)
-    rowRoll[i] = ROLL_AXIS:dot(torqueVector)
-    rowYaw[i] = YAW_AXIS:dot(torqueVector)
-    rowLift[i] = propellerDir:dot(upDir)
+    table.insert(rowPitch, PITCH_AXIS:dot(torqueVector))
+    table.insert(rowRoll, ROLL_AXIS:dot(torqueVector))
+    table.insert(rowYaw, YAW_AXIS:dot(torqueVector))
+    table.insert(rowLift, propellerDir:dot(upDir))
   end
 
   local A = Matrix.fromTable {
@@ -503,14 +507,6 @@ function PropellerControlSystem.computeCenterOfMass(objects)
   return sumWeightedPosition:div(massTotal), massTotal
 end
 
----@param rpm number
----@param name string
-function PropellerControlSystem:addToAllPropellers(rpm, name)
-  for _, prop in ipairs(self.propellers) do
-    prop:addRpm(name, rpm)
-  end
-end
-
 ---@param propeller rofl.Propeller
 ---@return number, Vector
 function PropellerControlSystem:getMassPerPropeller(propeller)
@@ -528,13 +524,16 @@ function PropellerControlSystem:resetPropellers()
   for _, propeller in ipairs(self.propellers) do
     propeller:resetRpm(0)
   end
+  for _, propeller in ipairs(self.propellers) do
+    propeller:resetRpm(0)
+  end
 end
 
 ---@private
 function PropellerControlSystem:sendAllRoutine()
   while true do
     self:sendAll()
-    sleep(1.0 / 20.0)
+    sleep(self.SEND_ALL_ROUTINE_WAIT)
   end
 end
 
@@ -543,14 +542,11 @@ function PropellerControlSystem:sendAll()
   local actions = {}
 
   for _, propeller in ipairs(self.propellers) do
-    table.insert(
-      actions,
-      function() propeller:sendRpm() end
-    )
-    table.insert(
-      actions,
-      function() propeller:sendTilt() end
-    )
+    table.insert(actions, function() propeller:sendAll() end)
+  end
+
+  for _, propeller in ipairs(self.strafePropellers) do
+    table.insert(actions, function() propeller:sendAll() end)
   end
 
   parallel.waitForAll(table.unpack(actions))

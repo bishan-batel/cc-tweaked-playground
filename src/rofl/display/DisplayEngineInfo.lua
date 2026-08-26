@@ -40,10 +40,10 @@ local PROPELLER_FRAMES = {
   ]],
 }
 
-function DisplayEngineInfo:_draw(rofl)
-  local sensors = rofl:getSystem("rofl.SensorSystem")
-  local engine = rofl.engine
-  local propSystem = rofl:getSystem("rofl.PropellerControlSystem")
+function DisplayEngineInfo:_draw(kernel)
+  local sensors = kernel:getSystem("rofl.SensorSystem")
+  local engine = kernel.engine
+  local propSystem = kernel:getSystem("rofl.PropellerControlSystem")
 
   self.monitor.setTextScale(TEXT_SCALE)
 
@@ -87,7 +87,7 @@ function DisplayEngineInfo:_draw(rofl)
 
 
     local index = 1 +
-      math.floor(8 * rofl.uptime + i * 7) %
+      math.floor(8 * kernel.uptime + i * 7) %
       #PROPELLER_FRAMES
 
     if not engine:isRunning() then

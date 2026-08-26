@@ -23,9 +23,9 @@ local ANCHOR_CHANNEL = 6969
 local SensorSystem = {}
 SensorSystem.__index = SensorSystem
 
----@param rofl rofl.Roflcopter
-function SensorSystem.new(rofl)
-  local instance = System.new("rofl.SensorSystem", rofl)
+---@param kernel rofl.Kernel
+function SensorSystem.new(kernel)
+  local instance = System.new("rofl.SensorSystem", kernel)
   setmetatable(instance, SensorSystem)
 
   ---@diagnostic disable-next-line: undefined-global
@@ -45,13 +45,16 @@ function SensorSystem.new(rofl)
 end
 
 function SensorSystem:backgroundRoutineAnchorPosition()
-  local modem =
-    peripheral.find("modem", function(name, t) return t.isWireless() end) --[[@as ccTweaked.peripheral.Modem]]
-    or error("No modem attached")
+  ---@type ccTweaked.peripheral.Modem
+  local modem = peripheral.find(
+    "modem",
+    function(_, t) return t.isWireless() end
+  ) or error("No modem attached")
 
   assert(modem.isWireless())
 
   modem.open(ANCHOR_CHANNEL)
+
   while true do
     local _, _, _, _, message, _ =
       os.pullEvent "modem_message"
@@ -66,7 +69,7 @@ function SensorSystem:backgroundRoutineAnchorPosition()
 end
 
 function SensorSystem:refresh()
-  local sensors = self.rofl.sensors
+  local sensors = self.kernel.sensors
 
   parallel.waitForAll(table.unpack {
     function() self.centerOfMass = sublevel.getCenterOfMass() end,

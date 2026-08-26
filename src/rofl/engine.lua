@@ -1,5 +1,5 @@
 ---@class rofl.Engine
----@field rofl rofl.Roflcopter
+---@field rofl rofl.Kernel
 ---@field name string
 ---@field private side string
 ---@field private target ccTweaked.peripheral.Target
@@ -23,7 +23,7 @@ local Engine = {
 
 Engine.__index = Engine
 
----@param rofl rofl.Roflcopter
+---@param rofl rofl.Kernel
 ---@param name string
 ---@param side ccTweaked.peripheral.computerSide
 ---@param isKeyTurned fun(): boolean
@@ -58,8 +58,7 @@ function Engine.new(rofl, name, side, isKeyTurned)
   return obj
 end
 
----@param dt number
-function Engine:_update(dt)
+function Engine:_update(...)
   if self.isKeyTurned() then
     self:start()
   else

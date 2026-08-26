@@ -1,50 +1,54 @@
 ---@class rofl.Propeller Wrapper for a propellar variable
 ---@field private speedController cctweaked.peripheral.RotationSpeedController
----@field private tiltAdapter cctweaked.peripheral.TiltAdapter|nil
----@field enabled boolean When false the propellar will snap to 0 RPM and 0 Tilt
+---@field enabled boolean When false the propellar will snap to 0 RPM
 ---@field baseRpm number Base rpm before delta RPM is applied
 ---@field deltaRpm rofl.Propeller.Offsets Offset from base rpm
----@field basePitch number Base tilt / pitch of the propellar
----@field deltaPitch rofl.Propeller.Offsets Offset tilt from base
 ---@field inverse boolean Inverts both tilt and the RPM of this propellar
 ---@field relativePosition ccTweaked.Vector Position of this propellar within the sublevel
 ---@field lastSentRpm number
----@field lastSentTilt number
----@field name? string
+---@field name string
+---@field direction Vector?
 local Propeller = {}
 Propeller.__index = Propeller
 
 ---@alias rofl.Propeller.Offsets { [string] : number }
 
----@param speedControl cctweaked.peripheral.RotationSpeedController
----@param tiltAdapter cctweaked.peripheral.TiltAdapter|nil
----@param inverse boolean
+---@param name string
+---@param speedControl cctweaked.peripheral.RotationSpeedController|string
 ---@param relativePosition ccTweaked.Vector
----@param name? string
-function Propeller.new(speedControl, tiltAdapter, inverse, relativePosition, name)
-  assert(speedControl, "Speed Control must not be nil for Propeller" .. name)
-  assert(tiltAdapter, "Tilt Adapter must not be nil for Propeller" .. name)
+---@param direction Vector? Direction this is facing, default is straight up
+---@param inverse boolean?
+function Propeller.new(
+  name,
+  speedControl,
+  relativePosition,
+  direction,
+  inverse
+)
   local self = setmetatable({}, Propeller)
+
+  if type(speedControl) == "string" then
+    speedControl = peripheral.wrap(speedControl) --[[@as cctweaked.peripheral.RotationSpeedController]]
+  end
+
+  assert(speedControl, "Speed Control must not be nil for Propeller" .. name)
+
   self.speedController = speedControl
-  self.tiltAdapter = tiltAdapter
   self.enabled = true
   self.baseRpm = 10
   self.deltaRpm = {}
-  self.basePitch = 0
-  self.deltaPitch = {}
   self.relativePosition = relativePosition
   self.inverse = not not inverse
   self.name = name
+  self.direction = direction or vector.new(0, 1, 0)
 
   self.lastSentRpm = 0
-  self.lastSentTilt = 0
 
   return self
 end
 
 function Propeller:sendAll()
   self:sendRpm()
-  self:sendTilt()
 end
 
 ---@param baseRpm number?
@@ -53,22 +57,10 @@ function Propeller:resetRpm(baseRpm)
   self.deltaRpm = {}
 end
 
----@param baseTilt number?
-function Propeller:resetTilt(baseTilt)
-  self.deltaPitch = {}
-  self.basePitch = baseTilt or self.basePitch
-end
-
 ---@param name string
 ---@param delta number
 function Propeller:addRpm(name, delta)
   self.deltaRpm[name] = delta
-end
-
----@param name string
----@param delta number
-function Propeller:addTilt(name, delta)
-  self.deltaPitch[name] = delta
 end
 
 --- Sends the RPM into the controller, note that this is considerably laggy
@@ -81,31 +73,6 @@ function Propeller:sendRpm()
 
   if self.inverse then rpm = -rpm end
   self.lastSentRpm = rpm
-end
-
---- Sends the Tilt into the controller, note that this is considerably laggy
-function Propeller:sendTilt()
-  if not self.tiltAdapter then return end
-  local tilt = self:calculateTilt()
-  self.tiltAdapter.setTargetAngle(tilt)
-
-  -- if not self.inverse then tilt = -tilt end
-  self.lastSentTilt = tilt
-end
-
---- Gets the total tilt sent to the controller
-function Propeller:calculateTilt()
-  if not self.enabled then return 0 end
-
-  local tilt = self.basePitch
-
-  for _, delta in pairs(self.deltaPitch) do
-    tilt = tilt + delta
-  end
-
-  if self.inverse then return tilt end
-  -- return -tilt
-  return tilt
 end
 
 --- Gets the total rpm sent to the controller
@@ -131,22 +98,35 @@ end
 ---@param roll number The roll of the ship in degrees
 ---@param pitch number The pitch of the ship
 function Propeller:calculateDir(yaw, roll, pitch)
-  local combinedPitch = pitch + (self.lastSentTilt or 0)
-
-
   local radYaw             = math.rad(yaw)
   local radRoll            = math.rad(roll)
-  local radPitch           = math.rad(combinedPitch)
+  local radPitch           = math.rad(pitch)
 
   local sinYaw, cosYaw     = math.sin(radYaw), math.cos(radYaw)
   local sinPitch, cosPitch = math.sin(radPitch), math.cos(radPitch)
   local sinRoll, cosRoll   = math.sin(radRoll), math.cos(radRoll)
 
-  local dirX               = cosYaw * sinPitch * sinRoll + sinYaw * cosRoll
-  local dirY               = sinYaw * sinPitch * sinRoll - cosYaw * cosRoll
-  local dirZ               = cosPitch * sinRoll
+  local x                  = self.direction.x
+  local y                  = self.direction.y
+  local z                  = self.direction.z
 
-  return vector.new(dirX, dirY, dirZ):mul(-1)
+  local m11                = cosYaw * cosPitch
+  local m12                = cosYaw * sinPitch * sinRoll - sinYaw * cosRoll
+  local m13                = cosYaw * sinPitch * cosRoll + sinYaw * sinRoll
+
+  local m21                = sinYaw * cosPitch
+  local m22                = sinYaw * sinPitch * sinRoll + cosYaw * cosRoll
+  local m23                = sinYaw * sinPitch * cosRoll - cosYaw * sinRoll
+
+  local m31                = -sinPitch
+  local m32                = cosPitch * sinRoll
+  local m33                = cosPitch * cosRoll
+
+  local rx                 = m11 * x + m12 * y + m13 * z
+  local ry                 = m21 * x + m22 * y + m23 * z
+  local rz                 = m31 * x + m32 * y + m33 * z
+
+  return vector.new(rx, ry, rz)
 end
 
 return Propeller
