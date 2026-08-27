@@ -194,11 +194,15 @@ end
 ---@return rofl.CaptainDisplayLeft.Data
 function CaptainDisplayLeft:getInfoData(kernel)
   local sensors = kernel:getSystem("rofl.SensorSystem")
+
+  local vel = sensors.velocity
+  vel.y = 0
+
   return {
     altitude = sensors.altitude,
     airPressure = sensors.airPressure,
-    velocityForward = sensors.velocity:length(),
-    heading = math.rad(0)
+    velocityForward = vel:length(),
+    heading = sensors.yaw
   }
 end
 

@@ -14,7 +14,15 @@ function CaptainDisplayNav.new(monitor)
 end
 
 function CaptainDisplayNav:_draw(kernel)
-  print(math.random())
+  local propSystem = kernel:getSystem("rofl.PropellerControlSystem")
+
+  local pitch = propSystem.lastPitchCorrection
+  local roll = propSystem.lastRollCorrection
+
+  term.clear()
+  term.setCursorPos(1, 5)
+  print(string.format("Pitch %.2f", pitch))
+  print(string.format("Roll %.2f", roll))
 end
 
 return CaptainDisplayNav
