@@ -8,10 +8,11 @@ local Matrix = require "..matrix"
 ---@field baseRpm number Base rpm before delta RPM is applied
 ---@field deltaRpm rofl.Propeller.Offsets Offset from base rpm
 ---@field inverse boolean Inverts both tilt and the RPM of this propellar
----@field relativePosition ccTweaked.Vector Position of this propellar within the sublevel
+---@field position ccTweaked.Vector Position of this propellar within the sublevel
 ---@field lastSentRpm number
 ---@field name string
----@field direction Vector?
+---@field direction Vector
+---@field numSails integer
 local Propeller = {
   AIRFLOW_CONFIG = 0.05000000074505806,
   THRUST_CONFIG = 0.20000000298023224
@@ -20,35 +21,36 @@ Propeller.__index = Propeller
 
 ---@alias rofl.Propeller.Offsets { [string] : number }
 
----@param name string
----@param speedControl cctweaked.peripheral.RotationSpeedController|string
----@param relativePosition ccTweaked.Vector
----@param direction Vector? Direction this is facing, default is straight up
----@param inverse boolean?
-function Propeller.new(
-  name,
-  speedControl,
-  relativePosition,
-  direction,
-  inverse
-)
+---@class Propeller.Config
+---@field name string
+---@field speedControl cctweaked.peripheral.RotationSpeedController|string
+---@field position Vector
+---@field direction Vector
+---@field numSails integer
+---@field inverse boolean?
+
+---@param config Propeller.Config
+function Propeller.new(config)
   local self = setmetatable({}, Propeller)
+
+  local speedControl = config.speedControl
 
   if type(speedControl) == "string" then
     speedControl = peripheral.wrap(speedControl) --[[@as cctweaked.peripheral.RotationSpeedController]]
   end
 
-  assert(speedControl, "Speed Control must not be nil for Propeller" .. name)
+  assert(speedControl,
+    "Speed Control must not be nil for Propeller" .. config.name)
 
   self.speedController = speedControl
   self.enabled = true
   self.baseRpm = 10
   self.deltaRpm = {}
-  self.relativePosition = relativePosition
-  self.inverse = not not inverse
-  self.name = name
-  self.direction = direction or vector.new(0, 1, 0)
-
+  self.position = config.position
+  self.inverse = config.inverse or false
+  self.name = config.name
+  self.direction = config.direction
+  self.numSails = config.numSails
   self.lastSentRpm = 0
 
   return self

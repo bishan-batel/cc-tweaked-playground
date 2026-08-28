@@ -63,8 +63,8 @@ function DisplayEngineInfo:_draw(kernel)
   local thrustAlloc = propSystem.lastThrustAllocation or {}
 
 
-  for i, propeller in ipairs(propSystem.propellers) do
-    i = #propSystem.propellers - i + 1
+  for i, propeller in ipairs(propSystem.liftPropellers) do
+    i = #propSystem.liftPropellers - i + 1
 
     local w = 27
     local h = 7
