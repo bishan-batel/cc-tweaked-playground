@@ -23,8 +23,6 @@ local X_AXIS = vector.new(1, 0, 0)
 local Y_AXIS = vector.new(0, 1, 0)
 local Z_AXIS = vector.new(0, 0, 1)
 
-local LATERAL_SCALE = 10.0
-
 local NUM_SAILS_LIFT = 180
 local NUM_SAILS_STRAFE = 8
 
@@ -418,6 +416,8 @@ function PropellerControlSystem:solveThrustLeastSquared(
 
   local upDir = gravity:normalize()
 
+  local intertiaTensor = Matrix.identity(3)
+
   --- Lift propellers
   for _, propeller in ipairs(self.liftPropellers) do
     local pos = propeller.position:add(anchorPosition):sub(centerOfMass)
@@ -426,10 +426,10 @@ function PropellerControlSystem:solveThrustLeastSquared(
 
     local forceVector = propellerDir
 
-    local torqueVector = pos:cross(forceVector)
+    local torque = pos:cross(forceVector)
 
-    table.insert(rowPitch, PITCH_AXIS:dot(torqueVector))
-    table.insert(rowRoll, ROLL_AXIS:dot(torqueVector))
+    table.insert(rowPitch, PITCH_AXIS:dot(torque))
+    table.insert(rowRoll, ROLL_AXIS:dot(torque))
     table.insert(rowLift, propellerDir:dot(upDir))
   end
 

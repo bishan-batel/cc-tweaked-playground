@@ -1,0 +1,3 @@
+---@meta
+---@class rofl.PeripheralWrapper
+---@field getSuUsage? fun(self): create.Su Gets the SU usage

@@ -1,6 +1,5 @@
 ---@meta
 
----@module "aero"
 local aero = {}
 
 ---@return ccTweaked.Vector

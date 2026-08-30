@@ -11,6 +11,8 @@
 local Matrix = {}
 Matrix.__index = Matrix
 
+local EPSILON = 1E-9
+
 --- Creates a matrix initialized with all zeros
 ---@param rows integer
 ---@param cols integer
@@ -27,6 +29,18 @@ function Matrix.new(rows, cols)
       self.data[i][j] = 0
     end
   end
+  return self
+end
+
+---@param dim integer
+---@return Matrix
+function Matrix.identity(dim)
+  local self = Matrix.new(dim, dim)
+
+  for i = 1, dim do
+    self.data[i][i] = 1
+  end
+
   return self
 end
 
@@ -161,54 +175,7 @@ function Matrix:print()
   end
 end
 
---- Computes the inverse of a 3x3 matrix specifically using Cramer's Rule.
---- Returns nil if the matrix is not 3x3 or is singular (determinant close to zero).
----@return Matrix|nil
-function Matrix:inverse3x3()
-  assert(self.rows == 3 and self.cols == 3,
-    "This function only works for 3x3 Matrices")
-
-  local d = self.data
-  local m11, m12, m13 = d[1][1], d[1][2], d[1][3]
-  local m21, m22, m23 = d[2][1], d[2][2], d[2][3]
-  local m31, m32, m33 = d[3][1], d[3][2], d[3][3]
-
-  -- harcode determinant
-  local det = m11 * (m22 * m33 - m23 * m32)
-    - m12 * (m21 * m33 - m23 * m31)
-    + m13 * (m21 * m32 - m22 * m31)
-
-  -- if determinant is basically zero then bail
-  if math.abs(det) < 1e-6 then
-    return nil
-  end
-
-  local invDet = 1 / det
-
-  local result = Matrix.new(3, 3)
-
-  local rd = result.data
-
-  -- Row 1 elements
-  rd[1][1] = (m22 * m33 - m23 * m32) * invDet
-  rd[1][2] = (m13 * m32 - m12 * m33) * invDet
-  rd[1][3] = (m12 * m23 - m13 * m22) * invDet
-
-  -- Row 2 elements
-  rd[2][1] = (m23 * m31 - m21 * m33) * invDet
-  rd[2][2] = (m11 * m33 - m13 * m31) * invDet
-  rd[2][3] = (m13 * m21 - m11 * m23) * invDet
-
-  -- Row 3 elements
-  rd[3][1] = (m21 * m32 - m22 * m31) * invDet
-  rd[3][2] = (m12 * m31 - m11 * m32) * invDet
-  rd[3][3] = (m11 * m22 - m12 * m21) * invDet
-
-  return result
-end
-
---- Creates a new sub-matrix by removing a specific row and column.
---- (Helper function used for determinant and cofactor calculations)
+--- Creates a new sub-matrix by removing a specific row and column
 ---@param excludeRow integer
 ---@param excludeCol integer
 ---@return Matrix
@@ -230,7 +197,7 @@ function Matrix:subMatrix(excludeRow, excludeCol)
   return result
 end
 
---- Calculates the determinant of a square matrix recursively.
+--- Calculates the determinant of a square matrix recursively
 ---@return number
 function Matrix:determinant()
   assert(
@@ -256,11 +223,13 @@ function Matrix:determinant()
   return det
 end
 
---- Computes the cofactor matrix of a square matrix.
+--- Computes the cofactor matrix of a *square* matrix
 ---@return Matrix
 function Matrix:cofactor()
-  assert(self.rows == self.cols,
-    "Cofactor matrix can only be calculated for square matrices.")
+  assert(
+    self.rows == self.cols,
+    "Cofactor matrix can only be calculated for square matrices."
+  )
 
   local n = self.rows
   local result = Matrix.new(n, n)
@@ -282,17 +251,13 @@ end
 
 --- Computes the inverse of a square matrix using the Adjugate/Cofactor method.
 --- Returns nil if the matrix is singular (determinant is zero).
----@return Matrix|nil, string?
+---@return Matrix?, string?
 function Matrix:inverse()
   assert(self.rows == self.cols, "Only square matrices can be inverted.")
 
-  -- if self.rows == 3 and self.cols == 3 then
-  --   return self:inverse3x3()
-  -- end
-
   local det = self:determinant()
 
-  if math.abs(det) < 1e-9 then
+  if math.abs(det) < EPSILON then
     return nil, "Singular" -- Matrix is singular and cannot be inverted
   end
 
@@ -303,7 +268,6 @@ function Matrix:inverse()
     return result
   end
 
-  -- The inverse is equal to (1 / determinant) * Transpose(CofactorMatrix)
   local matCofactor = self:cofactor()
   local matAdjugate = matCofactor:transpose()
 

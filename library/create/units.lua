@@ -1,0 +1,4 @@
+---@alias create.Su number
+---@alias Meter number
+---@alias Force number
+---@alias Mass number

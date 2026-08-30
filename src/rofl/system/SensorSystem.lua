@@ -1,9 +1,27 @@
 local System = require "system.init"
+local Matrix = require "..matrix"
+
+---@module "aero"
+local aero
 
 local ANCHOR_SETTING = "anchorPosition"
 local SENSORS_CONFIG_PATH = "anchor_config"
 
 local ANCHOR_CHANNEL = 6969
+
+---@class rofl.ShipState
+---@field mass number
+---@field centerOfMass Vector
+---@field position Vector
+---@field velocity Vector
+---@field angularVelocity Vector
+---@field angularAcceleration Vector
+---@field airPressure number
+---@field anchorPosition Vector
+---@field orientation Quaternion
+---@field orientationEuler EulerAngles
+---@field pressureFunc async fun(y: number): number
+---@field intertiaTensor Matrix
 
 ---@class rofl.SensorSystem : rofl.System
 ---@field centerOfMass ccTweaked.Vector Center of mass of the sublevel
@@ -12,7 +30,6 @@ local ANCHOR_CHANNEL = 6969
 ---@field velocity ccTweaked.Vector Velocity of the sublevel
 ---@field angularVelocity ccTweaked.Vector Angular Velocity of the sublevel
 ---@field airPressure number Air pressure of the sublevel
----@field rootPropellerPosition ccTweaked.Vector Position of the root propellar
 ---@field altitudeFront number
 ---@field altitudeBack number
 ---@field altitude number
@@ -21,6 +38,7 @@ local ANCHOR_CHANNEL = 6969
 ---@field yaw number Yaw of the ship
 ---@field roll number Roll of the ship
 ---@field shipAngles EulerAngles Pitch,Yaw, & Roll of the Ship
+---@field intertiaTensor Matrix
 local SensorSystem = {
   SEA_LEVEL = 90
 }
@@ -48,12 +66,31 @@ function SensorSystem.new(kernel)
   return instance
 end
 
+---@return rofl.ShipState
+function SensorSystem:getShipState()
+  ---@type rofl.ShipState
+  return {
+    mass = self.mass,
+    centerOfMass = self.centerOfMass,
+    position = self.anchorPosition,
+    orientation = self.orientation,
+    orientationEuler = self.shipAngles,
+    airPressure = self.airPressure,
+    anchorPosition = self.anchorPosition,
+    velocity = self.velocity,
+    angularVelocity = self.angularVelocity,
+    angularAcceleration = self.angularAcceleration,
+    pressureFunc = self.pressureFunc,
+    intertiaTensor = self.intertiaTensor
+  }
+end
+
 function SensorSystem:backgroundRoutineAnchorPosition()
   ---@type ccTweaked.peripheral.Modem
   local modem = peripheral.find(
     "modem",
     function(_, t) return t.isWireless() end
-  ) or error("No modem attached")
+  ) or error("No modem attached, unable to locate anchor")
 
   assert(modem.isWireless())
 
@@ -86,19 +123,31 @@ function SensorSystem:refresh()
   local sensors = self.kernel.sensors
 
   parallel.waitForAll(table.unpack {
+    -- Center of Mass
     function() self.centerOfMass = sublevel.getCenterOfMass() end,
+
+    -- Mass
     function() self.mass = sublevel.getMass() end,
+
+    -- Air Pressure (Front)
     function() self.airPressure = sensors.front.altitude:getAirPressure() end,
+
+    -- Velocity
     function() self.velocity = sublevel.getVelocity() end,
-    function() self.angularVelocity = sublevel.getAngularVelocity() end,
+
+    -- Altitude (back)
     function()
       self.altitudeBack = sensors.back.altitude:getHeight()
       self:recomputeAverageAltitude();
     end,
+
+    -- Altitude (front)
     function()
       self.altitudeFront = sensors.front.altitude:getHeight()
       self:recomputeAverageAltitude()
     end,
+
+    -- Position & Orientation
     function()
       local pose = sublevel.getLogicalPose()
       self.orientation = pose.orientation
@@ -113,6 +162,8 @@ function SensorSystem:refresh()
       }
       self.shipPosition = pose.position
     end,
+
+    -- Angular Velocity
     function()
       local old = self.angularVelocity or vector.new(0, 0, 0)
 
@@ -130,6 +181,8 @@ function SensorSystem:refresh()
         self.angularVelocityLastUpdated = now
       end
     end,
+
+    -- Pressure Function
     function()
       local raw = aero.getRaw()
       local pressure = raw.pressureFunction
@@ -139,7 +192,13 @@ function SensorSystem:refresh()
       self.pressureFunc = function(y)
         return pressure.evaluateFunction(y)
       end
-    end
+    end,
+
+    -- Intertia Tensor
+    function()
+      --- TODO: replace with sublevel.getIntertiaTensor
+      self.intertiaTensor = Matrix.identity(3)
+    end,
   })
 end
 

@@ -1,4 +1,8 @@
+local class = require("..class")
+local PeripheralWrapper = require("peripheral.wrapper")
 local Matrix = require "..matrix"
+
+local MAX_RPM = 256
 
 --- world dependent config, these are just set to the Create defaultse
 
@@ -13,11 +17,14 @@ local Matrix = require "..matrix"
 ---@field name string
 ---@field direction Vector
 ---@field numSails integer
+---@field dual boolean?
 local Propeller = {
   AIRFLOW_CONFIG = 0.05000000074505806,
   THRUST_CONFIG = 0.20000000298023224
 }
-Propeller.__index = Propeller
+
+class.derived(Propeller, PeripheralWrapper)
+
 
 ---@alias rofl.Propeller.Offsets { [string] : number }
 
@@ -28,10 +35,11 @@ Propeller.__index = Propeller
 ---@field direction Vector
 ---@field numSails integer
 ---@field inverse boolean?
+---@field dual boolean?
 
 ---@param config Propeller.Config
 function Propeller.new(config)
-  local self = setmetatable({}, Propeller)
+  local self = setmetatable(PeripheralWrapper.new("propeller"), Propeller)
 
   local speedControl = config.speedControl
 
@@ -52,10 +60,12 @@ function Propeller.new(config)
   self.direction = config.direction
   self.numSails = config.numSails
   self.lastSentRpm = 0
+  self.dualBearing = config.dual
 
   return self
 end
 
+---@async
 function Propeller:sendAll()
   self:sendRpm()
 end
@@ -73,6 +83,7 @@ function Propeller:addRpm(name, delta)
 end
 
 --- Sends the RPM into the controller, note that this is considerably laggy
+---@async
 function Propeller:sendRpm()
   local rpm = self:calculateRpm()
 
@@ -198,6 +209,32 @@ end
 ---@param numSails integer
 function Propeller.computeAirflow(rpm, numSails)
   return rpm * Propeller.AIRFLOW_CONFIG * math.sqrt(numSails)
+end
+
+---@param shipAngles EulerAngles
+---@param pressure number Air Pressure
+---@param velocity Vector Velocity
+function Propeller:getMaxThrust(shipAngles, pressure, velocity)
+  return Propeller.computeThrust(
+    MAX_RPM,
+    self.numSails,
+    pressure,
+    velocity,
+    self:calculateDir(shipAngles)
+  )
+end
+
+---@param rpm number? RPM of the engine
+function Propeller:getSuUsage(rpm)
+  rpm = rpm or self.lastSentRpm
+
+  local su = 2 * rpm * self.numSails
+
+  if self.dual then
+    su = su * 2
+  end
+
+  return su
 end
 
 return Propeller
