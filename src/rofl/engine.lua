@@ -1,42 +1,39 @@
+---@class rofl.Engine.Metrics
+---@field rpm  number
+---@field su number
+---@field fuel number
+
 ---@class rofl.Engine
----@field rofl rofl.Kernel
+---@field kernel rofl.Kernel
 ---@field name string
+---@field metricSuLine integer
+---@field metricRpmLine integer
+---@field metricFuelLine integer
 ---@field private side string
 ---@field private target ccTweaked.peripheral.Target
 ---@field private turnOn ccTweaked.peripheral.RedstoneRelay
 ---@field private turnOff ccTweaked.peripheral.RedstoneRelay
 ---@field private metrics rofl.Engine.Metrics
 ---@field private _running boolean
----@field isKeyTurned fun(): boolean
----@field metricSuLine integer
----@field metricRpmLine integer
----@field metricFuelLine integer
+---@field private isKeyTurned fun(): boolean
 local Engine = {
   --- Minimum RPM required before turning off the kickstart battery
-  KICKSTART_RPM = 64
+  KICKSTART_RPM = 64,
 }
-
----@class rofl.Engine.Metrics
----@field rpm  number
----@field su number
----@field fuel number
 
 Engine.__index = Engine
 
----@param rofl rofl.Kernel
+---@param kernel rofl.Kernel
 ---@param name string
 ---@param side ccTweaked.peripheral.computerSide
 ---@param isKeyTurned fun(): boolean
-function Engine.new(rofl, name, side, isKeyTurned)
+function Engine.new(kernel, name, side, isKeyTurned)
   ---@type rofl.Engine
   local obj = {
-    rofl = rofl,
-    turnOn =
-      peripheral.wrap("redstone_relay_2") --[[@as ccTweaked.peripheral.RedstoneRelay]],
-    turnOff =
-      peripheral.wrap("redstone_relay_3") --[[@as ccTweaked.peripheral.RedstoneRelay]],
-    target =
-      peripheral.wrap("create_target_0") --[[@as ccTweaked.peripheral.Target]],
+    kernel = kernel,
+    turnOn = peripheral.wrap("redstone_relay_2") --[[@as ccTweaked.peripheral.RedstoneRelay]],
+    turnOff = peripheral.wrap("redstone_relay_3") --[[@as ccTweaked.peripheral.RedstoneRelay]],
+    target = peripheral.wrap("create_target_0") --[[@as ccTweaked.peripheral.Target]],
     metrics = {
       rpm = 0,
       su = 0,
@@ -48,7 +45,7 @@ function Engine.new(rofl, name, side, isKeyTurned)
     isKeyTurned = isKeyTurned,
     metricFuelLine = 1,
     metricSuLine = 2,
-    metricRpmLine = 3
+    metricRpmLine = 3,
   }
 
   setmetatable(obj, Engine)
@@ -58,7 +55,9 @@ function Engine.new(rofl, name, side, isKeyTurned)
   return obj
 end
 
-function Engine:_update(...)
+function Engine:_update(dt)
+  _ = dt
+
   if self.isKeyTurned() then
     self:start()
   else
@@ -75,13 +74,14 @@ function Engine:cacheMetrics()
 end
 
 function Engine:cacheMetricRpm()
-  local text = self.target.getLine(self.metricRpmLine):gsub(",", ""):gsub(" RPM",
-    "")
+  local text =
+    self.target.getLine(self.metricRpmLine):gsub(",", ""):gsub(" RPM", "")
   self.metrics.rpm = tonumber(text) or 0
 end
 
 function Engine:cacheMetricSu()
-  local text = self.target.getLine(self.metricSuLine):gsub(",", ""):gsub("su", "")
+  local text =
+    self.target.getLine(self.metricSuLine):gsub(",", ""):gsub("su", "")
   self.metrics.su = tonumber(text) or 0
 end
 

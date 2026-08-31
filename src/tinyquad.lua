@@ -2,20 +2,19 @@ require("mathutils")
 
 print("Initial")
 
-local SEA_LEVEL                 = 66.5
-local MINIMUM_SPEED             = 107
-local PITCH_CORRECT_MAX         = 15
+local SEA_LEVEL = 66.5
+local MINIMUM_SPEED = 107
+local PITCH_CORRECT_MAX = 15
 local PITCH_CORRECT_SENSITIVITY = 1.0 / 7
 
-local ROLL_CORRECT_MAX          = 5
-local ROLL_CORRECT_SENSITIVITY  = 1.0 / 5
-
+local ROLL_CORRECT_MAX = 5
+local ROLL_CORRECT_SENSITIVITY = 1.0 / 5
 
 local THROTTLE_ANGLE = 10
 local THROTTLE_POWER = 10
-local STEER_ANGLE    = 2
+local STEER_ANGLE = 2
 
-local typewriter     = peripheral.find("linked_typewriter") --[[@as cctweaked.peripheral.Typewriter]]
+local typewriter = peripheral.find("linked_typewriter") --[[@as cctweaked.peripheral.Typewriter]]
 
 ---@return { number : boolean }
 local function getPressedKeys()
@@ -31,13 +30,11 @@ end
 -- tilt_adapter_0
 --]]
 
-
 local sensors = {
   velocity = peripheral.wrap("left") --[[@as cctweaked.peripheral.VelocitySensor]],
   gimbal = peripheral.wrap("top") --[[@as cctweaked.peripheral.GimbalSensor]],
-  altitude = peripheral.wrap("right") --[[@as cctweaked.peripheral.AltitudeSensor]]
+  altitude = peripheral.wrap("right") --[[@as cctweaked.peripheral.AltitudeSensor]],
 }
-
 
 local tiltAdapters = {
   --back left
@@ -57,7 +54,6 @@ local speedControllers = {
 }
 ---@cast speedControllers [cctweaked.peripheral.RotationSpeedController]
 
-
 local scroller = peripheral.wrap("scroller_0") --[[@as cctweaked.peripheral.Scroller]]
 
 local tiltAdapter = {
@@ -65,14 +61,14 @@ local tiltAdapter = {
     ---@type cctweaked.peripheral.TiltAdapter
     left = tiltAdapters[1],
     ---@type cctweaked.peripheral.TiltAdapter
-    right = tiltAdapters[2]
+    right = tiltAdapters[2],
   },
   front = {
     ---@type cctweaked.peripheral.TiltAdapter
     left = tiltAdapters[4],
     ---@type cctweaked.peripheral.TiltAdapter
-    right = tiltAdapters[3]
-  }
+    right = tiltAdapters[3],
+  },
 }
 
 local speedController = {
@@ -86,15 +82,14 @@ local speedController = {
     ---@type cctweaked.peripheral.RotationSpeedController
     left = speedControllers[1],
     ---@type cctweaked.peripheral.RotationSpeedController
-    right = speedControllers[2]
-  }
+    right = speedControllers[2],
+  },
 }
 
-
-local lastTime = os.epoch "utc"
+local lastTime = os.epoch("utc")
 
 while true do
-  local currentTime = os.epoch "utc"
+  local currentTime = os.epoch("utc")
 
   local dt = (currentTime - lastTime) / 1000.0
 
@@ -105,7 +100,6 @@ while true do
   local pitch = angles[1]
   local roll = angles[2]
 
-
   for _, adapter in ipairs(tiltAdapters) do
   end
 
@@ -113,38 +107,39 @@ while true do
 
   baseSpeed = MINIMUM_SPEED
 
-
   local airPressure = sensors.altitude:getAirPressure()
-  baseSpeed         = baseSpeed
+  baseSpeed = baseSpeed
 
-  local backLeft    = 0
-  local backRight   = 0
-  local frontLeft   = 0
-  local frontRight  = 0
+  local backLeft = 0
+  local backRight = 0
+  local frontLeft = 0
+  local frontRight = 0
 
-  local tilt        = {
+  local tilt = {
     backLeft = 0,
     backRight = 0,
     frontLeft = 0,
     frontRight = 0,
   }
 
-
   local pitchSpeedOffset = -math.clampMargin(
     math.margin(pitch - 16, 0) * PITCH_CORRECT_SENSITIVITY,
     -PITCH_CORRECT_MAX,
-    PITCH_CORRECT_MAX, 2)
+    PITCH_CORRECT_MAX,
+    2
+  )
 
-  local rollSpeedOffset  = -math.clampMargin(
+  local rollSpeedOffset = -math.clampMargin(
     math.margin(roll, 0) * ROLL_CORRECT_SENSITIVITY,
     -ROLL_CORRECT_MAX,
-    ROLL_CORRECT_MAX, 0)
+    ROLL_CORRECT_MAX,
+    0
+  )
 
-
-  backLeft          = backLeft + pitchSpeedOffset - rollSpeedOffset
-  backRight         = backRight + pitchSpeedOffset + rollSpeedOffset
-  frontLeft         = frontLeft - pitchSpeedOffset - rollSpeedOffset
-  frontRight        = frontRight - pitchSpeedOffset + rollSpeedOffset
+  backLeft = backLeft + pitchSpeedOffset - rollSpeedOffset
+  backRight = backRight + pitchSpeedOffset + rollSpeedOffset
+  frontLeft = frontLeft - pitchSpeedOffset - rollSpeedOffset
+  frontRight = frontRight - pitchSpeedOffset + rollSpeedOffset
 
   local pressedKeys = getPressedKeys()
 
@@ -203,23 +198,45 @@ while true do
     -- frontRight = STEER_POWER + frontRight
   end
 
-
-  backLeft   = math.min(baseSpeed, backLeft)
-  backRight  = math.min(baseSpeed, backRight)
-  frontLeft  = math.min(baseSpeed, frontLeft)
+  backLeft = math.min(baseSpeed, backLeft)
+  backRight = math.min(baseSpeed, backRight)
+  frontLeft = math.min(baseSpeed, frontLeft)
   frontRight = math.min(baseSpeed, frontRight)
 
-
-  speedController.back.left.setTargetSpeed((baseSpeed + backLeft) / airPressure);
-  speedController.back.right.setTargetSpeed((baseSpeed + backRight) / airPressure);
-  speedController.front.left.setTargetSpeed((baseSpeed + frontLeft) / airPressure);
-  speedController.front.right.setTargetSpeed((baseSpeed + frontRight) /
-    airPressure);
-
-  tiltAdapter.back.left.setTargetAngle(pitch + tilt.backLeft)
-  tiltAdapter.back.right.setTargetAngle(pitch + tilt.backRight)
-  tiltAdapter.front.left.setTargetAngle(pitch + tilt.frontLeft)
-  tiltAdapter.front.right.setTargetAngle(pitch + tilt.frontRight)
+  parallel.waitForAll(table.unpack({
+    function()
+      speedController.back.left.setTargetSpeed(
+        (baseSpeed + backLeft) / airPressure
+      )
+    end,
+    function()
+      speedController.back.right.setTargetSpeed(
+        (baseSpeed + backRight) / airPressure
+      )
+    end,
+    function()
+      speedController.front.left.setTargetSpeed(
+        (baseSpeed + frontLeft) / airPressure
+      )
+    end,
+    function()
+      speedController.front.right.setTargetSpeed(
+        (baseSpeed + frontRight) / airPressure
+      )
+    end,
+    function()
+      tiltAdapter.back.left.setTargetAngle(pitch + tilt.backLeft)
+    end,
+    function()
+      tiltAdapter.back.right.setTargetAngle(pitch + tilt.backRight)
+    end,
+    function()
+      tiltAdapter.front.left.setTargetAngle(pitch + tilt.frontLeft)
+    end,
+    function()
+      tiltAdapter.front.right.setTargetAngle(pitch + tilt.frontRight)
+    end,
+  }))
 
   term.redirect(peripheral.find("monitor"))
   term.clear()
@@ -227,8 +244,9 @@ while true do
 
   term.setTextColor(colors.lightBlue)
   write("VEL=" .. math.roundTo(sensors.velocity:getVelocity(), 2) .. " ")
-  write("ALT=" ..
-    math.roundTo(sensors.altitude:getHeight() - SEA_LEVEL, 2) .. " ")
+  write(
+    "ALT=" .. math.roundTo(sensors.altitude:getHeight() - SEA_LEVEL, 2) .. " "
+  )
   write("AIR=" .. math.roundTo(airPressure, 2))
   write("\n")
 
@@ -236,7 +254,6 @@ while true do
   write("PITCH=" .. math.round(pitch) .. " ")
   write("ROLL=" .. math.round(roll))
   write("\n")
-
 
   term.setTextColor(colors.blue)
 
@@ -249,7 +266,6 @@ while true do
   term.setTextColor(colors.red)
   write(tostring(math.roundTo(baseSpeed, 2)))
   write("\n\n")
-
 
   term.setTextColor(colors.lightGray)
   write("FL=")
@@ -273,10 +289,11 @@ while true do
   term.setTextColor(colors.red)
   write(tostring(math.roundTo(backRight, 3)))
 
-
   term.setTextColor(colors.white)
   write("\nPITCHCOR=" .. tostring(math.roundTo(pitchSpeedOffset, 2)))
   write("\nROLLCOR=" .. tostring(math.roundTo(rollSpeedOffset, 2)))
   write("\nDT=" .. dt)
-  sleep(1.0 / 20)
+
+  write("\nA=" .. math.random())
+  sleep(0)
 end

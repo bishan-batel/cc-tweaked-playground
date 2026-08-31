@@ -113,8 +113,14 @@ function Matrix:multiply(val)
     -- Matrix Multiplication
     assert(
       self.cols == val.rows,
-      "Dimension mismatch: Matrix A cols must match Matrix B rows. " ..
-      self.rows .. ", " .. self.cols .. " * " .. val.rows .. "," .. val.cols
+      "Dimension mismatch: Matrix A cols must match Matrix B rows. "
+        .. self.rows
+        .. ", "
+        .. self.cols
+        .. " * "
+        .. val.rows
+        .. ","
+        .. val.cols
     )
     local result = Matrix.new(self.rows, val.cols)
     for i = 1, self.rows do
@@ -207,7 +213,9 @@ function Matrix:determinant()
 
   local n = self.rows
 
-  if n == 1 then return self.data[1][1] end
+  if n == 1 then
+    return self.data[1][1]
+  end
 
   if n == 2 then
     local d = self.data
@@ -276,25 +284,23 @@ end
 
 ---@param vector Vector
 function Matrix.fromVector(vector)
-  return Matrix.fromTable {
+  return Matrix.fromTable({
     { vector.x },
     { vector.y },
     { vector.z },
-  }
+  })
 end
 
 --- Converts this matrix to a Vector, this only works if the matrix is 3x1 / a 3
 --- dim column vector
 ---@return Vector
 function Matrix:toVector()
-  assert(self.rows == 3 and self.cols == 1,
-    "toVector only works for 3x1 matrices")
-
-  return vector.new(
-    self.data[1][1],
-    self.data[2][1],
-    self.data[3][1]
+  assert(
+    self.rows == 3 and self.cols == 1,
+    "toVector only works for 3x1 matrices"
   )
+
+  return vector.new(self.data[1][1], self.data[2][1], self.data[3][1])
 end
 
 --- Creates a 3x3 rotation matrix from Euler angles (Roll, Pitch, Yaw)
@@ -311,11 +317,22 @@ function Matrix.fromEuler(angles)
   local cosYaw, sinYaw = math.cos(yaw), math.sin(yaw)
 
   local data = {
-    { cosYaw * cosRoll + sinYaw * sinPitch * sinRoll, sinYaw * sinPitch * cosRoll - cosYaw * sinRoll, sinYaw * cosPitch },
-    { cosPitch * sinRoll,                             cosPitch * cosRoll,                             -sinPitch },
-    { cosYaw * sinPitch * sinRoll - sinYaw * cosRoll, sinYaw * sinRoll + cosYaw * sinPitch * cosRoll, cosYaw * cosPitch }
+    {
+      cosYaw * cosRoll + sinYaw * sinPitch * sinRoll,
+      sinYaw * sinPitch * cosRoll - cosYaw * sinRoll,
+      sinYaw * cosPitch,
+    },
+    {
+      cosPitch * sinRoll,
+      cosPitch * cosRoll,
+      -sinPitch,
+    },
+    {
+      cosYaw * sinPitch * sinRoll - sinYaw * cosRoll,
+      sinYaw * sinRoll + cosYaw * sinPitch * cosRoll,
+      cosYaw * cosPitch,
+    },
   }
-
 
   return Matrix.fromTable(data)
 end

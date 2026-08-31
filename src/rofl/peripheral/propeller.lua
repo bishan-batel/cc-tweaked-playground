@@ -1,6 +1,5 @@
 local class = require("..class")
-local PeripheralWrapper = require("peripheral.wrapper")
-local Matrix = require "..matrix"
+local Matrix = require("..matrix")
 
 local MAX_RPM = 256
 
@@ -20,11 +19,10 @@ local MAX_RPM = 256
 ---@field dual boolean?
 local Propeller = {
   AIRFLOW_CONFIG = 0.05000000074505806,
-  THRUST_CONFIG = 0.20000000298023224
+  THRUST_CONFIG = 0.20000000298023224,
 }
 
-class.derived(Propeller, PeripheralWrapper)
-
+Propeller.__index = Propeller
 
 ---@alias rofl.Propeller.Offsets { [string] : number }
 
@@ -38,8 +36,9 @@ class.derived(Propeller, PeripheralWrapper)
 ---@field dual boolean?
 
 ---@param config Propeller.Config
+---@return rofl.Propeller
 function Propeller.new(config)
-  local self = setmetatable(PeripheralWrapper.new("propeller"), Propeller)
+  local self = setmetatable({}, Propeller)
 
   local speedControl = config.speedControl
 
@@ -47,8 +46,10 @@ function Propeller.new(config)
     speedControl = peripheral.wrap(speedControl) --[[@as cctweaked.peripheral.RotationSpeedController]]
   end
 
-  assert(speedControl,
-    "Speed Control must not be nil for Propeller" .. config.name)
+  assert(
+    speedControl,
+    "Speed Control must not be nil for Propeller" .. config.name
+  )
 
   self.speedController = speedControl
   self.enabled = true
@@ -60,7 +61,7 @@ function Propeller.new(config)
   self.direction = config.direction
   self.numSails = config.numSails
   self.lastSentRpm = 0
-  self.dualBearing = config.dual
+  self.dual = config.dual
 
   return self
 end
@@ -91,7 +92,9 @@ function Propeller:sendRpm()
 
   self.speedController.setTargetSpeed(math.round(rpm))
 
-  if self.inverse then rpm = -rpm end
+  if self.inverse then
+    rpm = -rpm
+  end
   self.lastSentRpm = rpm
 end
 
@@ -188,13 +191,7 @@ end
 ---@param pressure number
 ---@param velocity Vector
 ---@param normal Vector
-function Propeller.computeThrust(
-  rpm,
-  numSails,
-  pressure,
-  velocity,
-  normal
-)
+function Propeller.computeThrust(rpm, numSails, pressure, velocity, normal)
   local N = numSails
 
   local v = normal:dot(velocity)

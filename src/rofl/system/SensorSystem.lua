@@ -1,8 +1,5 @@
-local System = require "system.init"
-local Matrix = require "..matrix"
-
----@module "aero"
-local aero
+local System = require("system.init")
+local Matrix = require("..matrix")
 
 local ANCHOR_SETTING = "anchorPosition"
 local SENSORS_CONFIG_PATH = "anchor_config"
@@ -40,7 +37,7 @@ local ANCHOR_CHANNEL = 6969
 ---@field shipAngles EulerAngles Pitch,Yaw, & Roll of the Ship
 ---@field intertiaTensor Matrix
 local SensorSystem = {
-  SEA_LEVEL = 90
+  SEA_LEVEL = 90,
 }
 
 SensorSystem.__index = SensorSystem
@@ -60,7 +57,9 @@ function SensorSystem.new(kernel)
         os.sleep(0.5)
       end
     end,
-    function() instance:backgroundRoutineAnchorPosition() end
+    function()
+      instance:backgroundRoutineAnchorPosition()
+    end,
   }
 
   return instance
@@ -81,24 +80,22 @@ function SensorSystem:getShipState()
     angularVelocity = self.angularVelocity,
     angularAcceleration = self.angularAcceleration,
     pressureFunc = self.pressureFunc,
-    intertiaTensor = self.intertiaTensor
+    intertiaTensor = self.intertiaTensor,
   }
 end
 
 function SensorSystem:backgroundRoutineAnchorPosition()
   ---@type ccTweaked.peripheral.Modem
-  local modem = peripheral.find(
-    "modem",
-    function(_, t) return t.isWireless() end
-  ) or error("No modem attached, unable to locate anchor")
+  local modem = peripheral.find("modem", function(_, t)
+    return t.isWireless()
+  end) or error("No modem attached, unable to locate anchor")
 
   assert(modem.isWireless())
 
   modem.open(ANCHOR_CHANNEL)
 
   while true do
-    local _, _, _, _, message, _ =
-      os.pullEvent "modem_message"
+    local _, _, _, _, message, _ = os.pullEvent("modem_message")
 
     if type(message) == "table" then
       self.anchorPosition = vector.new(message.x, message.y, message.z)
@@ -122,23 +119,31 @@ end
 function SensorSystem:refresh()
   local sensors = self.kernel.sensors
 
-  parallel.waitForAll(table.unpack {
+  parallel.waitForAll(table.unpack({
     -- Center of Mass
-    function() self.centerOfMass = sublevel.getCenterOfMass() end,
+    function()
+      self.centerOfMass = sublevel.getCenterOfMass()
+    end,
 
     -- Mass
-    function() self.mass = sublevel.getMass() end,
+    function()
+      self.mass = sublevel.getMass()
+    end,
 
     -- Air Pressure (Front)
-    function() self.airPressure = sensors.front.altitude:getAirPressure() end,
+    function()
+      self.airPressure = sensors.front.altitude:getAirPressure()
+    end,
 
     -- Velocity
-    function() self.velocity = sublevel.getVelocity() end,
+    function()
+      self.velocity = sublevel.getVelocity()
+    end,
 
     -- Altitude (back)
     function()
       self.altitudeBack = sensors.back.altitude:getHeight()
-      self:recomputeAverageAltitude();
+      self:recomputeAverageAltitude()
     end,
 
     -- Altitude (front)
@@ -158,7 +163,7 @@ function SensorSystem:refresh()
       self.shipAngles = {
         yaw = self.yaw,
         pitch = self.pitch,
-        roll = self.roll
+        roll = self.roll,
       }
       self.shipPosition = pose.position
     end,
@@ -199,7 +204,7 @@ function SensorSystem:refresh()
       --- TODO: replace with sublevel.getIntertiaTensor
       self.intertiaTensor = Matrix.identity(3)
     end,
-  })
+  }))
 end
 
 function SensorSystem:_init()
@@ -210,7 +215,6 @@ function SensorSystem:_init()
   self:refresh()
 end
 
-function SensorSystem:_update(dt)
-end
+function SensorSystem:_update(dt) end
 
 return SensorSystem

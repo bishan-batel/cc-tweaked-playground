@@ -19,43 +19,29 @@ local Kernel = {
   },
 
   sensors = {
-    navigation_table =
-      peripheral.wrap("navigation_table_1") --[[@as cctweaked.peripheral.NavigationTable ]],
+    navigation_table = peripheral.wrap("navigation_table_1") --[[@as cctweaked.peripheral.NavigationTable ]],
     front = {
-      velocityForward =
-        peripheral.wrap("velocity_sensor_3") --[[@as cctweaked.peripheral.VelocitySensor]],
-      velocityRight =
-        peripheral.wrap("velocity_sensor_4") --[[@as cctweaked.peripheral.VelocitySensor]],
-      altitude =
-        peripheral.wrap("altitude_sensor_1") --[[@as cctweaked.peripheral.AltitudeSensor]],
-      gimbal =
-        peripheral.wrap("gimbal_sensor_1") --[[@as cctweaked.peripheral.GimbalSensor ]],
+      velocityForward = peripheral.wrap("velocity_sensor_3") --[[@as cctweaked.peripheral.VelocitySensor]],
+      velocityRight = peripheral.wrap("velocity_sensor_4") --[[@as cctweaked.peripheral.VelocitySensor]],
+      altitude = peripheral.wrap("altitude_sensor_1") --[[@as cctweaked.peripheral.AltitudeSensor]],
+      gimbal = peripheral.wrap("gimbal_sensor_1") --[[@as cctweaked.peripheral.GimbalSensor ]],
     },
     back = {
-      velocityForward =
-        peripheral.wrap("velocity_sensor_1") --[[@as cctweaked.peripheral.VelocitySensor]],
-      velocityRight =
-        peripheral.wrap("velocity_sensor_2") --[[@as cctweaked.peripheral.VelocitySensor]],
-      altitude =
-        peripheral.wrap("altitude_sensor_0") --[[@as cctweaked.peripheral.AltitudeSensor]],
-      gimbal =
-        peripheral.wrap("gimbal_sensor_2") --[[@as cctweaked.peripheral.GimbalSensor ]]
+      velocityForward = peripheral.wrap("velocity_sensor_1") --[[@as cctweaked.peripheral.VelocitySensor]],
+      velocityRight = peripheral.wrap("velocity_sensor_2") --[[@as cctweaked.peripheral.VelocitySensor]],
+      altitude = peripheral.wrap("altitude_sensor_0") --[[@as cctweaked.peripheral.AltitudeSensor]],
+      gimbal = peripheral.wrap("gimbal_sensor_2") --[[@as cctweaked.peripheral.GimbalSensor ]],
     },
 
     landing = {
       front = {
-        left =
-          peripheral.wrap("optical_sensor_2") --[[@as cctweaked.peripheral.OpticalSensor]],
-        right =
-          peripheral.wrap("optical_sensor_3") --[[@as cctweaked.peripheral.OpticalSensor]],
+        left = peripheral.wrap("optical_sensor_2") --[[@as cctweaked.peripheral.OpticalSensor]],
+        right = peripheral.wrap("optical_sensor_3") --[[@as cctweaked.peripheral.OpticalSensor]],
       },
       back = {
-        left =
-          peripheral.wrap("optical_sensor_0") --[[@as cctweaked.peripheral.OpticalSensor]],
-        right =
-          peripheral.wrap("optical_sensor_1") --[[@as cctweaked.peripheral.OpticalSensor]],
-      }
-
+        left = peripheral.wrap("optical_sensor_0") --[[@as cctweaked.peripheral.OpticalSensor]],
+        right = peripheral.wrap("optical_sensor_1") --[[@as cctweaked.peripheral.OpticalSensor]],
+      },
     },
   },
 
@@ -67,25 +53,25 @@ local Kernel = {
 }
 
 function Kernel:_init()
-  self.engine = Engine.new(
-    self,
-    "Main Engine",
-    "back",
-    function() return redstone.getInput("front") end
-  )
+  print("KERNEL: Initialising")
 
-  self.auxEngine = Engine.new(
-    self,
-    "Aux Engine",
-    "front",
-    function() return redstone.getInput("top") end
-  )
+  self.engine = Engine.new(self, "Main Engine", "back", function()
+    return redstone.getInput("front")
+  end)
 
-  local wirelessModem =
-    peripheral.find("modem", function(name, modem) return modem.isWireless() end)
+  self.auxEngine = Engine.new(self, "Aux Engine", "front", function()
+    return redstone.getInput("top")
+  end)
+
+  print("KERNEL: Setup Engines")
+
+  local wirelessModem = peripheral.find("modem", function(name, modem)
+    return modem.isWireless()
+  end)
 
   if wirelessModem then
     rednet.open(peripheral.getName(wirelessModem))
+    print("KERNEL: Setup rednet modem")
   end
 
   self:addSystem(require("system.SensorSystem").new(self))
@@ -103,6 +89,7 @@ end
 
 ---@param system rofl.System
 function Kernel:addSystem(system)
+  print("KERNEL: Adding system", system.name)
   self.systems[system.name] = system
 end
 
@@ -115,14 +102,11 @@ end
 
 ---@param dt number
 function Kernel:_update(dt)
-  parallel.waitForAll(
-    function()
-      self.engine:_update(dt);
-    end,
-    function()
-      self.auxEngine:_update(dt);
-    end
-  )
+  parallel.waitForAll(function()
+    self.engine:_update(dt)
+  end, function()
+    self.auxEngine:_update(dt)
+  end)
 
   local systemUpdates = {}
 
@@ -153,7 +137,9 @@ end
 ---@return [function]
 function Kernel:_getGlobalThreads()
   local threads = {
-    function() self:_mainLoop() end
+    function()
+      self:_mainLoop()
+    end,
   }
 
   for _, system in pairs(self.systems) do
@@ -162,12 +148,14 @@ function Kernel:_getGlobalThreads()
     end
   end
 
-
   return threads
 end
 
 function Kernel:_run()
+  -- Initialise all systems
   self:_init()
+
+  -- Kickstart global 'threads / routines'
   parallel.waitForAny(table.unpack(self:_getGlobalThreads()))
 end
 

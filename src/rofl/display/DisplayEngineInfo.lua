@@ -1,47 +1,45 @@
 local Display = require("display.init")
-local class = require "..class"
+local class = require("..class")
 
 ---@class rofl.DisplayEngineInfo : rofl.Display
 local DisplayEngineInfo = {}
 
-
 class.derived(DisplayEngineInfo, Display)
-
 
 TEXT_SCALE = 0.5
 
 local PROPELLER_FRAMES = {
-  paintutils.parseImage [[
+  paintutils.parseImage([[
    7
   77
     7
      77
      7
-  ]],
-  paintutils.parseImage [[
+  ]]),
+  paintutils.parseImage([[
 
    7
   77777
      7
 
-  ]],
-  paintutils.parseImage [[
+  ]]),
+  paintutils.parseImage([[
      7
      77
     7
   77
    7
-  ]],
-  paintutils.parseImage [[
+  ]]),
+  paintutils.parseImage([[
     7
     77
     7
    77
     7
-  ]],
+  ]]),
 }
 
----@param monitor
+---@param monitor string | ccTweaked.peripheral.Monitor
 function DisplayEngineInfo.new(monitor)
   local self = Display.new(monitor)
   setmetatable(self, DisplayEngineInfo)
@@ -61,7 +59,6 @@ function DisplayEngineInfo:_draw(kernel)
   paintutils.drawFilledBox(1, 1, width, height, colors.black)
 
   local thrustAlloc = propSystem.lastThrustAllocation or {}
-
 
   for i, propeller in ipairs(propSystem.liftPropellers) do
     i = #propSystem.liftPropellers - i + 1
@@ -89,23 +86,13 @@ function DisplayEngineInfo:_draw(kernel)
     term.setTextColor(colors.gray)
     term.write("RPM ")
 
-    term.setTextColor(colors.lightGray)
-    term.write(string.format("%.2f", propeller.lastSentTilt))
-
-    term.setTextColor(colors.gray)
-    term.write("DEG")
-
-
-    local index = 1 +
-      math.floor(8 * kernel.uptime + i * 7) %
-      #PROPELLER_FRAMES
+    local index = 1 + math.floor(8 * kernel.uptime + i * 7) % #PROPELLER_FRAMES
 
     if not engine:isRunning() then
       index = 1
     end
 
     paintutils.drawImage(PROPELLER_FRAMES[index], x + 19, y + 2)
-
 
     for name, thrust in pairs(thrustAlloc) do
       if name == propeller.name then
@@ -152,7 +139,6 @@ function DisplayEngineInfo:_draw(kernel)
       else
         term.setTextColor(colors.lightGray)
       end
-
 
       term.write(string.format("%+0.2f", delta))
 
